@@ -1,0 +1,2793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Margin Optimizer — AI Control Tower v2</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #C4B5FD; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #A78BFA; }
+    input[type="range"] { height: 6px; border-radius: 3px; appearance: none; -webkit-appearance: none; background: #E5E7EB; outline: none; }
+    input[type="range"]::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #6B46C1; cursor: pointer; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+    main > div { animation: fadeIn 0.3s ease-out; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+
+  <!-- Theme System + Initial Sample Data -->
+  <script>
+// Theme system + shared data constants
+const ThemeContext = React.createContext();
+
+const lightTheme = {
+  name: 'light',
+  bg: '#FFFFFF',
+  bgAlt: '#F5F3FF',
+  bgCard: '#FFFFFF',
+  bgSidebar: '#FAFAFE',
+  text: '#1F2937',
+  textSecondary: '#6B7280',
+  textMuted: '#9CA3AF',
+  primary: '#6B46C1',
+  primaryLight: '#A78BFA',
+  primaryBg: '#F5F3FF',
+  primaryBorder: '#E5D9FF',
+  border: '#E5E7EB',
+  borderPurple: '#E5D9FF',
+  success: '#10B981',
+  successBg: '#ECFDF5',
+  warning: '#F59E0B',
+  warningBg: '#FFFBEB',
+  error: '#EF4444',
+  errorBg: '#FEF2F2',
+  info: '#3B82F6',
+  infoBg: '#EFF6FF',
+  shadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)',
+  shadowHover: '0 4px 12px rgba(107,70,193,0.12), 0 2px 4px rgba(0,0,0,0.06)',
+  chartGradientStart: 'rgba(107,70,193,0.3)',
+  chartGradientEnd: 'rgba(107,70,193,0.02)',
+};
+
+const darkTheme = {
+  name: 'dark',
+  bg: '#0F172A',
+  bgAlt: '#1E1B4B',
+  bgCard: '#1E293B',
+  bgSidebar: '#0D1323',
+  text: '#F9FAFB',
+  textSecondary: '#CBD5E1',
+  textMuted: '#64748B',
+  primary: '#A78BFA',
+  primaryLight: '#C4B5FD',
+  primaryBg: '#3730A3',
+  primaryBorder: '#553399',
+  border: '#334155',
+  borderPurple: '#553399',
+  success: '#34D399',
+  successBg: '#064E3B',
+  warning: '#FBBF24',
+  warningBg: '#78350F',
+  error: '#F87171',
+  errorBg: '#7F1D1D',
+  info: '#60A5FA',
+  infoBg: '#1E3A5F',
+  shadow: '0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2)',
+  shadowHover: '0 4px 12px rgba(167,139,250,0.2), 0 2px 4px rgba(0,0,0,0.2)',
+  chartGradientStart: 'rgba(167,139,250,0.35)',
+  chartGradientEnd: 'rgba(167,139,250,0.02)',
+};
+
+function ThemeProvider({ children }) {
+  const [isDark, setIsDark] = React.useState(() => {
+    const saved = localStorage.getItem('mo-theme');
+    return saved === 'dark';
+  });
+  const theme = isDark ? darkTheme : lightTheme;
+  const toggleTheme = () => {
+    setIsDark(d => {
+      localStorage.setItem('mo-theme', !d ? 'dark' : 'light');
+      return !d;
+    });
+  };
+  return React.createElement(ThemeContext.Provider, { value: { theme, isDark, toggleTheme } }, children);
+}
+
+function useTheme() { return React.useContext(ThemeContext); }
+
+// Sample data for a $2B manufacturer
+const SAMPLE_DATA = {
+  company: 'Meridian Industrial Group',
+  revenue: 2100000000,
+  plants: [
+    { id: 'P1', name: 'Columbus, OH', margin: 28.4, variance: -1.2, revenue: 520000000, efficiency: 87.3 },
+    { id: 'P2', name: 'Charlotte, NC', margin: 31.7, variance: 0.8, revenue: 480000000, efficiency: 91.2 },
+    { id: 'P3', name: 'Houston, TX', margin: 24.1, variance: -3.4, revenue: 390000000, efficiency: 78.9 },
+    { id: 'P4', name: 'Portland, OR', margin: 33.2, variance: 1.1, revenue: 350000000, efficiency: 93.5 },
+    { id: 'P5', name: 'Detroit, MI', margin: 26.8, variance: -0.7, revenue: 360000000, efficiency: 84.1 },
+  ],
+  kpis: {
+    grossMargin: 29.1,
+    grossMarginTarget: 31.0,
+    grossMarginVariance: -1.9,
+    marginDollars: 611100000,
+    marginDollarsVariance: -39900000,
+    forecastMargin: 30.4,
+    forecastConfidence: 82,
+    activeAlerts: 7,
+    criticalAlerts: 2,
+  },
+  marginTrend: [
+    { month: 'Nov', value: 31.2 }, { month: 'Dec', value: 30.8 },
+    { month: 'Jan', value: 30.1 }, { month: 'Feb', value: 29.7 },
+    { month: 'Mar', value: 28.4 }, { month: 'Apr', value: 29.1 },
+  ],
+  costCategories: [
+    { name: 'Materials', pct: 42, variance: -2.1, amount: 882000000, trend: 'up' },
+    { name: 'Labor', pct: 22, variance: -0.8, amount: 462000000, trend: 'up' },
+    { name: 'Overhead', pct: 18, variance: 0.2, amount: 378000000, trend: 'stable' },
+    { name: 'Freight', pct: 11, variance: -0.4, amount: 231000000, trend: 'up' },
+    { name: 'Quality', pct: 7, variance: 0.1, amount: 147000000, trend: 'down' },
+  ],
+  products: [
+    { id: 'SKU-001', name: 'Industrial Pump A-200', family: 'Pumps', margin: 34.2, cost: 1240, price: 1885, volume: 12400, trend: 'stable' },
+    { id: 'SKU-002', name: 'Valve Assembly V-50', family: 'Valves', margin: 28.7, cost: 890, price: 1248, volume: 28900, trend: 'down' },
+    { id: 'SKU-003', name: 'Motor Unit M-100', family: 'Motors', margin: 22.1, cost: 2100, price: 2696, volume: 8200, trend: 'down' },
+    { id: 'SKU-004', name: 'Bearing Set BS-75', family: 'Components', margin: 41.3, cost: 45, price: 76.65, volume: 142000, trend: 'up' },
+    { id: 'SKU-005', name: 'Hydraulic Cylinder HC-30', family: 'Hydraulics', margin: 31.5, cost: 680, price: 993, volume: 19500, trend: 'stable' },
+    { id: 'SKU-006', name: 'Gearbox GB-400', family: 'Gearboxes', margin: 18.9, cost: 3200, price: 3945, volume: 4100, trend: 'down' },
+    { id: 'SKU-007', name: 'Filter System FS-12', family: 'Filtration', margin: 38.8, cost: 320, price: 523, volume: 35200, trend: 'up' },
+    { id: 'SKU-008', name: 'Compressor CP-80', family: 'Compressors', margin: 25.4, cost: 4500, price: 6030, volume: 3800, trend: 'stable' },
+  ],
+  materials: [
+    { id: 'M1', name: 'Steel Alloy 4140', supplier: 'ArcelorMittal', cost: 1.85, unit: '/kg', risk: 'Medium', trend: [1.72, 1.75, 1.78, 1.82, 1.84, 1.85], change: 7.6 },
+    { id: 'M2', name: 'Copper Wire Grade A', supplier: 'Freeport-McMoRan', cost: 8.94, unit: '/kg', risk: 'High', trend: [7.80, 8.10, 8.40, 8.65, 8.80, 8.94], change: 14.6 },
+    { id: 'M3', name: 'Aluminum 6061-T6', supplier: 'Novelis', cost: 3.12, unit: '/kg', risk: 'Low', trend: [3.05, 3.08, 3.10, 3.11, 3.12, 3.12], change: 2.3 },
+    { id: 'M4', name: 'HDPE Resin', supplier: 'Dow Chemical', cost: 1.45, unit: '/kg', risk: 'Medium', trend: [1.30, 1.35, 1.38, 1.40, 1.42, 1.45], change: 11.5 },
+    { id: 'M5', name: 'Stainless Steel 316L', supplier: 'Outokumpu', cost: 4.20, unit: '/kg', risk: 'High', trend: [3.70, 3.85, 3.95, 4.05, 4.12, 4.20], change: 13.5 },
+    { id: 'M6', name: 'Nitrile Rubber', supplier: 'Lanxess', cost: 2.60, unit: '/kg', risk: 'Low', trend: [2.55, 2.56, 2.57, 2.58, 2.59, 2.60], change: 2.0 },
+  ],
+  alerts: [
+    { id: 1, severity: 'critical', title: 'Houston plant margin below 25% threshold', time: '2h ago', category: 'Threshold' },
+    { id: 2, severity: 'critical', title: 'Copper prices up 14.6% — projected $2.1M impact', time: '4h ago', category: 'Predictive' },
+    { id: 3, severity: 'high', title: 'Gearbox GB-400 margin declined to 18.9%', time: '6h ago', category: 'Trend' },
+    { id: 4, severity: 'high', title: 'Motor Unit M-100 cost variance exceeds 8%', time: '1d ago', category: 'Threshold' },
+    { id: 5, severity: 'medium', title: 'Stainless steel supply risk elevated — SE Asia disruption', time: '1d ago', category: 'Predictive' },
+    { id: 6, severity: 'medium', title: 'Charlotte plant overtime hours trending up 12%', time: '2d ago', category: 'Trend' },
+    { id: 7, severity: 'low', title: 'Filter System FS-12 demand exceeding forecast +8%', time: '3d ago', category: 'Anomaly' },
+  ],
+  aiInsights: [
+    {
+      type: 'root_cause',
+      title: 'Margin Compression Root Cause',
+      text: 'Margin dropped 1.9pp this quarter. Materials (+2.1%) and Labor (+0.8%) account for 84% of the variance. Primary driver: copper and steel price increases driven by SE Asia supply disruption and tariff uncertainty.',
+      confidence: 91,
+      actions: ['View material cost breakdown', 'Explore sourcing alternatives'],
+    },
+    {
+      type: 'optimization',
+      title: 'Recommended Actions',
+      text: 'Top opportunity: Shift 15% of Valve Assembly V-50 production from Houston to Portland — projected margin improvement of 1.2pp ($4.8M annually). Second: Renegotiate copper contracts with 6-month forward pricing.',
+      confidence: 78,
+      actions: ['Run scenario simulation', 'View plant comparison'],
+    },
+    {
+      type: 'forecast',
+      title: '60-Day Margin Outlook',
+      text: 'Forecasting margin recovery to 30.4% by June, driven by seasonal demand uptick and new Bearing Set BS-75 contracts. Risk factor: pending tariff decision on steel imports could add 0.5pp downside.',
+      confidence: 82,
+      actions: ['View forecast details', 'Adjust assumptions'],
+    },
+  ],
+  risks: [
+    { category: 'Supply Chain', level: 'High', description: 'SE Asia shipping delays — 2-3 week backlog', impact: '$3.2M' },
+    { category: 'Commodity', level: 'High', description: 'Copper futures up 12% next quarter', impact: '$2.1M' },
+    { category: 'Geopolitical', level: 'Medium', description: 'Steel tariff review pending — decision in 45 days', impact: '$1.8M' },
+    { category: 'Regulatory', level: 'Low', description: 'EPA emissions standards update — minor compliance cost', impact: '$0.4M' },
+  ],
+};
+
+const fmt = {
+  currency: (v) => {
+    if (Math.abs(v) >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
+    if (Math.abs(v) >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+    if (Math.abs(v) >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+    return '$' + v.toFixed(0);
+  },
+  pct: (v) => v > 0 ? '+' + v.toFixed(1) + '%' : v.toFixed(1) + '%',
+  pctAbs: (v) => v.toFixed(1) + '%',
+  num: (v) => v.toLocaleString(),
+};
+
+Object.assign(window, { ThemeContext, ThemeProvider, useTheme, lightTheme, darkTheme, SAMPLE_DATA, fmt });
+
+  </script>
+
+  <!-- Extended V2 Sample Data -->
+  <script>
+// Expanded sample data for $2B manufacturer
+const SAMPLE_DATA = {
+  company: 'Meridian Industrial Group',
+  revenue: 2100000000,
+  plants: [
+    { id: 'P1', name: 'Columbus, OH', lat: 39.96, lng: -82.99, margin: 28.4, variance: -1.2, revenue: 520000000, efficiency: 87.3, type: 'Manufacturing', employees: 420, products: 12 },
+    { id: 'P2', name: 'Charlotte, NC', lat: 35.22, lng: -80.84, margin: 31.7, variance: 0.8, revenue: 480000000, efficiency: 91.2, type: 'Manufacturing', employees: 380, products: 10 },
+    { id: 'P3', name: 'Houston, TX', lat: 29.76, lng: -95.36, margin: 24.1, variance: -3.4, revenue: 390000000, efficiency: 78.9, type: 'Manufacturing', employees: 510, products: 15 },
+    { id: 'P4', name: 'Portland, OR', lat: 45.52, lng: -122.68, margin: 33.2, variance: 1.1, revenue: 350000000, efficiency: 93.5, type: 'Manufacturing', employees: 290, products: 8 },
+    { id: 'P5', name: 'Detroit, MI', lat: 42.33, lng: -83.04, margin: 26.8, variance: -0.7, revenue: 360000000, efficiency: 84.1, type: 'Manufacturing', employees: 445, products: 14 },
+  ],
+  distributionCenters: [
+    { id: 'DC1', name: 'Atlanta, GA', lat: 33.75, lng: -84.39, type: 'Distribution', throughput: '$180M' },
+    { id: 'DC2', name: 'Chicago, IL', lat: 41.88, lng: -87.63, type: 'Distribution', throughput: '$220M' },
+    { id: 'DC3', name: 'Dallas, TX', lat: 32.78, lng: -96.80, type: 'Distribution', throughput: '$150M' },
+    { id: 'DC4', name: 'Phoenix, AZ', lat: 33.45, lng: -112.07, type: 'Distribution', throughput: '$95M' },
+  ],
+  kpis: {
+    grossMargin: 29.1, grossMarginTarget: 31.0, grossMarginVariance: -1.9,
+    marginDollars: 611100000, marginDollarsVariance: -39900000,
+    forecastMargin: 30.4, forecastConfidence: 82,
+    activeAlerts: 12, criticalAlerts: 3,
+  },
+  // 12-month time series
+  marginTrend: [
+    { month: 'May', actual: 32.1, plan: 31.0, forecast: null },
+    { month: 'Jun', actual: 31.8, plan: 31.0, forecast: null },
+    { month: 'Jul', actual: 31.5, plan: 31.0, forecast: null },
+    { month: 'Aug', actual: 31.0, plan: 31.0, forecast: null },
+    { month: 'Sep', actual: 30.6, plan: 31.0, forecast: null },
+    { month: 'Oct', actual: 31.2, plan: 31.0, forecast: null },
+    { month: 'Nov', actual: 30.8, plan: 31.0, forecast: null },
+    { month: 'Dec', actual: 30.1, plan: 31.0, forecast: null, anomaly: 'Seasonal dip + steel cost spike' },
+    { month: 'Jan', actual: 29.7, plan: 31.0, forecast: null },
+    { month: 'Feb', actual: 28.4, plan: 31.0, forecast: null, anomaly: 'SE Asia supply disruption' },
+    { month: 'Mar', actual: 28.9, plan: 31.0, forecast: null },
+    { month: 'Apr', actual: 29.1, plan: 31.0, forecast: null },
+    { month: 'May', actual: null, plan: 31.0, forecast: 29.6 },
+    { month: 'Jun', actual: null, plan: 31.0, forecast: 30.4 },
+  ],
+  costCategories: [
+    { name: 'Materials', pct: 42, variance: -2.1, amount: 882000000, trend: [40, 40.5, 41, 41.2, 41.8, 42], trendLabels: ['Nov','Dec','Jan','Feb','Mar','Apr'] },
+    { name: 'Labor', pct: 22, variance: -0.8, amount: 462000000, trend: [21, 21.2, 21.4, 21.6, 21.8, 22], trendLabels: ['Nov','Dec','Jan','Feb','Mar','Apr'] },
+    { name: 'Overhead', pct: 18, variance: 0.2, amount: 378000000, trend: [18.2, 18.1, 18.1, 18.0, 18.0, 18], trendLabels: ['Nov','Dec','Jan','Feb','Mar','Apr'] },
+    { name: 'Freight', pct: 11, variance: -0.4, amount: 231000000, trend: [10.2, 10.4, 10.6, 10.8, 11.0, 11], trendLabels: ['Nov','Dec','Jan','Feb','Mar','Apr'] },
+    { name: 'Quality', pct: 7, variance: 0.1, amount: 147000000, trend: [7.2, 7.1, 7.1, 7.0, 7.0, 7], trendLabels: ['Nov','Dec','Jan','Feb','Mar','Apr'] },
+  ],
+  products: [
+    { id: 'SKU-001', name: 'Industrial Pump A-200', family: 'Pumps', margin: 34.2, cost: 1240, price: 1885, volume: 12400, trend: 'stable', marginTrend: [33.8,34.0,34.1,34.0,34.2,34.2] },
+    { id: 'SKU-002', name: 'Valve Assembly V-50', family: 'Valves', margin: 28.7, cost: 890, price: 1248, volume: 28900, trend: 'down', marginTrend: [31.2,30.8,30.1,29.4,29.0,28.7] },
+    { id: 'SKU-003', name: 'Motor Unit M-100', family: 'Motors', margin: 22.1, cost: 2100, price: 2696, volume: 8200, trend: 'down', marginTrend: [26.8,25.9,24.8,23.5,22.8,22.1] },
+    { id: 'SKU-004', name: 'Bearing Set BS-75', family: 'Components', margin: 41.3, cost: 45, price: 76.65, volume: 142000, trend: 'up', marginTrend: [39.2,39.8,40.1,40.5,41.0,41.3] },
+    { id: 'SKU-005', name: 'Hydraulic Cylinder HC-30', family: 'Hydraulics', margin: 31.5, cost: 680, price: 993, volume: 19500, trend: 'stable', marginTrend: [31.8,31.6,31.5,31.4,31.5,31.5] },
+    { id: 'SKU-006', name: 'Gearbox GB-400', family: 'Gearboxes', margin: 18.9, cost: 3200, price: 3945, volume: 4100, trend: 'down', marginTrend: [24.1,23.2,22.0,20.8,19.8,18.9] },
+    { id: 'SKU-007', name: 'Filter System FS-12', family: 'Filtration', margin: 38.8, cost: 320, price: 523, volume: 35200, trend: 'up', marginTrend: [36.5,37.0,37.6,38.0,38.4,38.8] },
+    { id: 'SKU-008', name: 'Compressor CP-80', family: 'Compressors', margin: 25.4, cost: 4500, price: 6030, volume: 3800, trend: 'stable', marginTrend: [25.8,25.6,25.5,25.4,25.4,25.4] },
+    { id: 'SKU-009', name: 'Seal Kit SK-20', family: 'Components', margin: 52.1, cost: 12, price: 25.05, volume: 280000, trend: 'up', marginTrend: [50.2,50.8,51.2,51.5,51.8,52.1] },
+    { id: 'SKU-010', name: 'Heat Exchanger HX-60', family: 'Thermal', margin: 27.3, cost: 1850, price: 2544, volume: 6400, trend: 'down', marginTrend: [29.8,29.2,28.6,28.0,27.6,27.3] },
+    { id: 'SKU-011', name: 'Actuator ACT-15', family: 'Actuators', margin: 33.6, cost: 560, price: 843, volume: 18700, trend: 'stable', marginTrend: [33.8,33.7,33.6,33.5,33.6,33.6] },
+    { id: 'SKU-012', name: 'Pressure Vessel PV-90', family: 'Vessels', margin: 20.4, cost: 8900, price: 11186, volume: 1200, trend: 'down', marginTrend: [23.5,22.8,22.0,21.2,20.8,20.4] },
+    { id: 'SKU-013', name: 'Coupling CL-25', family: 'Components', margin: 44.7, cost: 85, price: 153.7, volume: 95000, trend: 'up', marginTrend: [42.8,43.2,43.6,44.0,44.4,44.7] },
+    { id: 'SKU-014', name: 'Turbine Blade TB-10', family: 'Turbines', margin: 36.2, cost: 2400, price: 3762, volume: 5600, trend: 'stable', marginTrend: [36.0,36.1,36.1,36.2,36.2,36.2] },
+    { id: 'SKU-015', name: 'Conveyor Belt CB-50', family: 'Conveyors', margin: 29.8, cost: 740, price: 1054, volume: 11200, trend: 'down', marginTrend: [31.5,31.0,30.6,30.2,30.0,29.8] },
+    { id: 'SKU-016', name: 'Control Panel CP-35', family: 'Controls', margin: 35.9, cost: 1100, price: 1716, volume: 7800, trend: 'up', marginTrend: [34.2,34.6,35.0,35.3,35.6,35.9] },
+    { id: 'SKU-017', name: 'Reducer RD-70', family: 'Gearboxes', margin: 23.1, cost: 1650, price: 2146, volume: 9100, trend: 'down', marginTrend: [26.0,25.4,24.6,24.0,23.5,23.1] },
+    { id: 'SKU-018', name: 'Manifold MF-40', family: 'Hydraulics', margin: 37.4, cost: 420, price: 671, volume: 22300, trend: 'stable', marginTrend: [37.2,37.3,37.3,37.4,37.4,37.4] },
+    { id: 'SKU-019', name: 'Impeller IM-55', family: 'Pumps', margin: 30.2, cost: 290, price: 415, volume: 31500, trend: 'down', marginTrend: [32.0,31.6,31.1,30.7,30.4,30.2] },
+    { id: 'SKU-020', name: 'Gasket Set GS-10', family: 'Components', margin: 58.3, cost: 8, price: 19.18, volume: 410000, trend: 'up', marginTrend: [56.1,56.8,57.2,57.6,58.0,58.3] },
+    { id: 'SKU-021', name: 'Centrifuge CF-85', family: 'Separators', margin: 26.7, cost: 5200, price: 7096, volume: 2100, trend: 'down', marginTrend: [29.1,28.5,27.8,27.2,26.9,26.7] },
+    { id: 'SKU-022', name: 'Agitator AG-30', family: 'Mixers', margin: 32.8, cost: 980, price: 1458, volume: 8900, trend: 'stable', marginTrend: [32.9,32.8,32.8,32.8,32.8,32.8] },
+  ],
+  materials: [
+    { id: 'M1', name: 'Steel Alloy 4140', supplier: 'ArcelorMittal', country: 'Luxembourg', lat: 49.6, lng: 6.1, cost: 1.85, unit: '/kg', risk: 'Medium', trend: [1.72,1.75,1.78,1.82,1.84,1.85], change: 7.6, spend: 142000000 },
+    { id: 'M2', name: 'Copper Wire Grade A', supplier: 'Freeport-McMoRan', country: 'USA', lat: 33.45, lng: -112.07, cost: 8.94, unit: '/kg', risk: 'High', trend: [7.80,8.10,8.40,8.65,8.80,8.94], change: 14.6, spend: 98000000 },
+    { id: 'M3', name: 'Aluminum 6061-T6', supplier: 'Novelis', country: 'Canada', lat: 43.65, lng: -79.38, cost: 3.12, unit: '/kg', risk: 'Low', trend: [3.05,3.08,3.10,3.11,3.12,3.12], change: 2.3, spend: 87000000 },
+    { id: 'M4', name: 'HDPE Resin', supplier: 'Dow Chemical', country: 'USA', lat: 43.62, lng: -84.22, cost: 1.45, unit: '/kg', risk: 'Medium', trend: [1.30,1.35,1.38,1.40,1.42,1.45], change: 11.5, spend: 56000000 },
+    { id: 'M5', name: 'Stainless Steel 316L', supplier: 'Outokumpu', country: 'Finland', lat: 60.17, lng: 24.94, cost: 4.20, unit: '/kg', risk: 'High', trend: [3.70,3.85,3.95,4.05,4.12,4.20], change: 13.5, spend: 118000000 },
+    { id: 'M6', name: 'Nitrile Rubber', supplier: 'Lanxess', country: 'Germany', lat: 51.23, lng: 6.78, cost: 2.60, unit: '/kg', risk: 'Low', trend: [2.55,2.56,2.57,2.58,2.59,2.60], change: 2.0, spend: 34000000 },
+    { id: 'M7', name: 'Titanium Ti-6Al-4V', supplier: 'VSMPO-AVISMA', country: 'Russia', lat: 55.75, lng: 60.09, cost: 28.50, unit: '/kg', risk: 'High', trend: [24.0,25.2,26.1,27.0,27.8,28.5], change: 18.8, spend: 42000000 },
+    { id: 'M8', name: 'Carbon Fiber T300', supplier: 'Toray Industries', country: 'Japan', lat: 35.68, lng: 139.69, cost: 22.00, unit: '/kg', risk: 'Medium', trend: [20.5,21.0,21.2,21.5,21.8,22.0], change: 7.3, spend: 38000000 },
+    { id: 'M9', name: 'Zinc Alloy ZA-8', supplier: 'Nyrstar', country: 'Belgium', lat: 50.85, lng: 4.35, cost: 3.80, unit: '/kg', risk: 'Medium', trend: [3.40,3.50,3.58,3.65,3.72,3.80], change: 11.8, spend: 29000000 },
+    { id: 'M10', name: 'Silicon Carbide', supplier: 'Saint-Gobain', country: 'France', lat: 48.86, lng: 2.35, cost: 6.40, unit: '/kg', risk: 'Low', trend: [6.20,6.25,6.28,6.32,6.36,6.40], change: 3.2, spend: 21000000 },
+  ],
+  alerts: [
+    { id: 1, severity: 'critical', title: 'Houston plant margin below 25% threshold', time: '2h ago', category: 'Threshold', entity: 'P3', aiSuggestion: 'Shift 20% of Gearbox GB-400 production to Portland. Projected margin recovery: +2.1pp at Houston.' },
+    { id: 2, severity: 'critical', title: 'Copper prices up 14.6% — projected $2.1M impact', time: '4h ago', category: 'Predictive', entity: 'M2', aiSuggestion: 'Lock in 6-month forward contracts at current spot. Alternative: substitute with aluminum alloy for non-critical components, saving ~$800K.' },
+    { id: 3, severity: 'critical', title: 'Titanium supply chain at risk — geopolitical tension', time: '5h ago', category: 'Predictive', entity: 'M7', aiSuggestion: 'Activate secondary supplier (ATI Metals, USA). Higher cost (+8%) but eliminates geopolitical risk. Net margin impact: -0.2pp.' },
+    { id: 4, severity: 'high', title: 'Gearbox GB-400 margin declined to 18.9%', time: '6h ago', category: 'Trend', entity: 'SKU-006', aiSuggestion: 'Root cause: steel and titanium cost increases (+18%). Options: 1) 5% price increase (est. 3% volume loss), 2) Redesign with alternative alloy (-$180/unit).' },
+    { id: 5, severity: 'high', title: 'Motor Unit M-100 cost variance exceeds 8%', time: '1d ago', category: 'Threshold', entity: 'SKU-003', aiSuggestion: 'Copper wire cost driving 65% of variance. Negotiate volume discount with Freeport-McMoRan or qualify secondary supplier.' },
+    { id: 6, severity: 'high', title: 'Pressure Vessel PV-90 margin eroding — now 20.4%', time: '1d ago', category: 'Trend', entity: 'SKU-012', aiSuggestion: 'Stainless steel 316L cost is primary driver. Consider switching to duplex steel for select models — 12% material savings, same performance.' },
+    { id: 7, severity: 'medium', title: 'Stainless steel supply risk elevated — SE Asia disruption', time: '1d ago', category: 'Predictive', entity: 'M5', aiSuggestion: 'Build 30-day safety stock at current price. Monitor Outokumpu capacity utilization — currently at 88%.' },
+    { id: 8, severity: 'medium', title: 'Charlotte plant overtime hours trending up 12%', time: '2d ago', category: 'Trend', entity: 'P2', aiSuggestion: 'Filter System FS-12 demand surge driving overtime. Add second shift or redistribute 15% of FS-12 to Columbus.' },
+    { id: 9, severity: 'medium', title: 'Reducer RD-70 margin approaching threshold', time: '2d ago', category: 'Trend', entity: 'SKU-017', aiSuggestion: 'Margin declined 2.9pp in 6 months. Recommend bundling with Gearbox GB-400 to improve combined margin via value pricing.' },
+    { id: 10, severity: 'low', title: 'Filter System FS-12 demand exceeding forecast +8%', time: '3d ago', category: 'Anomaly', entity: 'SKU-007', aiSuggestion: 'Positive signal — increase production capacity. Current lead time: 3 weeks. Consider 10% price increase on new orders.' },
+    { id: 11, severity: 'low', title: 'Gasket Set GS-10 margin at all-time high', time: '3d ago', category: 'Anomaly', entity: 'SKU-020', aiSuggestion: 'Nitrile rubber costs stable, volume growing. Opportunity to invest in production automation for further margin expansion.' },
+    { id: 12, severity: 'low', title: 'Portland plant efficiency new high: 93.5%', time: '4d ago', category: 'Anomaly', entity: 'P4', aiSuggestion: 'Best-in-class. Document practices for replication at Houston and Detroit. Potential margin uplift: +1.5pp across fleet.' },
+  ],
+  aiInsights: [
+    { type: 'root_cause', title: 'Margin Compression Root Cause', text: 'Margin dropped 1.9pp this quarter. Materials (+2.1%) and Labor (+0.8%) account for 84% of the variance. Primary driver: copper and steel price increases driven by SE Asia supply disruption and tariff uncertainty. Secondary: Houston plant efficiency decline (-4.4pp OEE) adding $3.2M in unplanned costs.', confidence: 91, actions: ['View material cost breakdown', 'Drill into Houston plant'] },
+    { type: 'optimization', title: 'Top 3 Recommended Actions', text: '1) Shift 15% of Valve V-50 production Houston→Portland: +1.2pp margin ($4.8M/yr). 2) Lock copper forward contracts at current spot: hedge $2.1M downside. 3) Bundle Gearbox GB-400 + Reducer RD-70 for value pricing: +0.8pp combined margin.', confidence: 78, actions: ['Run scenario simulation', 'View plant comparison'] },
+    { type: 'forecast', title: '60-Day Margin Outlook', text: 'Forecasting margin recovery to 30.4% by June, driven by seasonal demand uptick (+$45M revenue) and new Bearing Set BS-75 contracts. Risk: pending tariff decision on steel imports could add 0.5pp downside. Copper futures suggest continued pressure through Q3.', confidence: 82, actions: ['View forecast details', 'Adjust assumptions'] },
+  ],
+  risks: [
+    { category: 'Supply Chain', level: 'High', description: 'SE Asia shipping delays — 2-3 week backlog', impact: '$3.2M', trend: 'worsening' },
+    { category: 'Commodity', level: 'High', description: 'Copper futures up 12% next quarter', impact: '$2.1M', trend: 'worsening' },
+    { category: 'Geopolitical', level: 'High', description: 'Russia titanium export restrictions — 40% of global supply', impact: '$1.8M', trend: 'new' },
+    { category: 'Geopolitical', level: 'Medium', description: 'Steel tariff review pending — decision in 45 days', impact: '$1.5M', trend: 'stable' },
+    { category: 'Regulatory', level: 'Low', description: 'EPA emissions standards update — minor compliance cost', impact: '$0.4M', trend: 'stable' },
+  ],
+  issues: [
+    { id: 'ISS-001', title: 'Houston plant margin recovery', status: 'investigating', severity: 'critical', created: 'Apr 15', assignee: 'S. Chen', alertIds: [1, 4], rootCause: 'Steel + labor cost increase', actions: ['Production rebalancing in progress', 'Supplier renegotiation scheduled'], timeline: [
+      { date: 'Apr 15', event: 'Alert triggered: Houston margin below 25%', type: 'alert' },
+      { date: 'Apr 16', event: 'AI root cause analysis completed', type: 'ai' },
+      { date: 'Apr 17', event: 'Assigned to S. Chen for investigation', type: 'assign' },
+      { date: 'Apr 18', event: 'Production shift scenario created', type: 'action' },
+      { date: 'Apr 19', event: 'Supplier meeting scheduled for Apr 22', type: 'action' },
+    ]},
+    { id: 'ISS-002', title: 'Copper price exposure mitigation', status: 'solving', severity: 'critical', created: 'Apr 12', assignee: 'M. Rivera', alertIds: [2, 5], rootCause: 'Global copper supply tightening', actions: ['Forward contract negotiation with broker', 'Engineering review of copper alternatives'], timeline: [
+      { date: 'Apr 12', event: 'Predictive alert: copper price trajectory', type: 'alert' },
+      { date: 'Apr 13', event: 'AI identified affected products (5 SKUs)', type: 'ai' },
+      { date: 'Apr 14', event: 'Forward contract options evaluated', type: 'action' },
+      { date: 'Apr 17', event: 'Engineering approved aluminum substitute for V-50 housing', type: 'action' },
+      { date: 'Apr 19', event: 'Contract draft sent to broker', type: 'action' },
+    ]},
+    { id: 'ISS-003', title: 'Titanium supply chain de-risking', status: 'open', severity: 'high', created: 'Apr 18', assignee: null, alertIds: [3], rootCause: 'Geopolitical risk — Russia export restrictions', actions: [], timeline: [
+      { date: 'Apr 18', event: 'Geopolitical alert triggered', type: 'alert' },
+      { date: 'Apr 18', event: 'AI identified alternative suppliers (ATI, TIMET)', type: 'ai' },
+    ]},
+    { id: 'ISS-004', title: 'Gearbox product line profitability', status: 'investigating', severity: 'high', created: 'Apr 10', assignee: 'J. Kim', alertIds: [4, 9], rootCause: 'Cost escalation + competitive pricing pressure', actions: ['Value pricing bundle analysis', 'Alternative alloy testing'], timeline: [
+      { date: 'Apr 10', event: 'Trend alert: GB-400 margin declining', type: 'alert' },
+      { date: 'Apr 11', event: 'AI decomposed margin variance by cost driver', type: 'ai' },
+      { date: 'Apr 14', event: 'Assigned to J. Kim', type: 'assign' },
+      { date: 'Apr 16', event: 'Bundle pricing scenario modeled (+0.8pp)', type: 'action' },
+    ]},
+    { id: 'ISS-005', title: 'Filter System capacity expansion', status: 'solved', severity: 'low', created: 'Apr 5', assignee: 'L. Park', alertIds: [10], rootCause: 'Demand exceeding forecast', actions: ['Second shift approved at Charlotte', 'Price increase implemented'], timeline: [
+      { date: 'Apr 5', event: 'Anomaly detected: FS-12 demand +8%', type: 'alert' },
+      { date: 'Apr 6', event: 'AI recommended capacity increase + price adjustment', type: 'ai' },
+      { date: 'Apr 8', event: 'Second shift approved', type: 'action' },
+      { date: 'Apr 12', event: '5% price increase on new orders', type: 'action' },
+      { date: 'Apr 18', event: 'Issue resolved — capacity matched, margin improved', type: 'resolve' },
+    ]},
+  ],
+  aiChatHistory: [
+    { role: 'assistant', text: 'Welcome to the Margin Optimizer AI. I can help you analyze margin trends, identify root causes, and simulate scenarios. What would you like to explore?' },
+  ],
+};
+
+const fmt = {
+  currency: (v) => {
+    if (Math.abs(v) >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
+    if (Math.abs(v) >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+    if (Math.abs(v) >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+    return '$' + v.toFixed(0);
+  },
+  pct: (v) => v > 0 ? '+' + v.toFixed(1) + '%' : v.toFixed(1) + '%',
+  pctAbs: (v) => v.toFixed(1) + '%',
+  num: (v) => v.toLocaleString(),
+};
+
+Object.assign(window, { SAMPLE_DATA, fmt });
+
+  </script>
+
+  <!-- Shared UI Components -->
+  <script>
+// Shared UI components: cards, charts, badges, icons
+function Card({ children, style, onClick, hoverable = false }) {
+  const { theme } = useTheme();
+  const [hovered, setHovered] = React.useState(false);
+  return React.createElement('div', {
+    style: {
+      background: theme.bgCard,
+      borderRadius: 10,
+      border: `1px solid ${theme.border}`,
+      boxShadow: hovered && hoverable ? theme.shadowHover : theme.shadow,
+      transition: 'all 0.2s ease',
+      transform: hovered && hoverable ? 'translateY(-2px)' : 'none',
+      cursor: onClick ? 'pointer' : 'default',
+      ...style,
+    },
+    onClick,
+    onMouseEnter: () => setHovered(true),
+    onMouseLeave: () => setHovered(false),
+  }, children);
+}
+
+function Badge({ text, color, bg }) {
+  return React.createElement('span', {
+    style: { display: 'inline-block', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, color, background: bg, letterSpacing: 0.3 }
+  }, text);
+}
+
+function SeverityBadge({ severity }) {
+  const { theme } = useTheme();
+  const m = { critical: [theme.error, theme.errorBg], high: ['#EA580C', theme.warningBg], medium: [theme.warning, theme.warningBg], low: [theme.info, theme.infoBg] };
+  const [c, bg] = m[severity] || m.low;
+  return React.createElement(Badge, { text: severity.charAt(0).toUpperCase() + severity.slice(1), color: c, bg });
+}
+
+function TrendArrow({ value, size = 14 }) {
+  const { theme } = useTheme();
+  const isUp = value > 0;
+  const color = isUp ? theme.error : theme.success;
+  // For costs, up is bad (red), down is good (green)
+  return React.createElement('span', { style: { color, fontSize: size, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 2 } },
+    React.createElement('span', { style: { transform: isUp ? 'none' : 'rotate(180deg)', display: 'inline-block' } }, '▲'),
+    Math.abs(value).toFixed(1) + '%'
+  );
+}
+
+function MarginTrendArrow({ value, size = 14 }) {
+  const { theme } = useTheme();
+  const isUp = value > 0;
+  const color = isUp ? theme.success : theme.error;
+  return React.createElement('span', { style: { color, fontSize: size, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 2 } },
+    React.createElement('span', { style: { transform: isUp ? 'none' : 'rotate(180deg)', display: 'inline-block' } }, '▲'),
+    (value > 0 ? '+' : '') + value.toFixed(1) + '%'
+  );
+}
+
+// SVG Area Chart
+function AreaChart({ data, width = 280, height = 80, color, gradientId, showLabels = false, showDots = true }) {
+  const { theme } = useTheme();
+  color = color || theme.primary;
+  const gid = gradientId || 'ag-' + Math.random().toString(36).slice(2, 7);
+  const min = Math.min(...data.map(d => d.value)) * 0.95;
+  const max = Math.max(...data.map(d => d.value)) * 1.02;
+  const range = max - min || 1;
+  const pad = { top: 8, bottom: showLabels ? 20 : 8, left: 4, right: 4 };
+  const w = width - pad.left - pad.right;
+  const h = height - pad.top - pad.bottom;
+  const pts = data.map((d, i) => ({ x: pad.left + (i / (data.length - 1)) * w, y: pad.top + h - ((d.value - min) / range) * h }));
+  const line = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+  const area = line + ` L${pts[pts.length - 1].x.toFixed(1)},${pad.top + h} L${pts[0].x.toFixed(1)},${pad.top + h} Z`;
+
+  return React.createElement('svg', { width, height, viewBox: `0 0 ${width} ${height}`, style: { display: 'block' } },
+    React.createElement('defs', null,
+      React.createElement('linearGradient', { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 },
+        React.createElement('stop', { offset: '0%', stopColor: color, stopOpacity: 0.3 }),
+        React.createElement('stop', { offset: '100%', stopColor: color, stopOpacity: 0.02 })
+      )
+    ),
+    React.createElement('path', { d: area, fill: `url(#${gid})` }),
+    React.createElement('path', { d: line, fill: 'none', stroke: color, strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+    showDots && pts.map((p, i) => React.createElement('circle', { key: i, cx: p.x, cy: p.y, r: 3, fill: theme.bgCard, stroke: color, strokeWidth: 2 })),
+    showLabels && data.map((d, i) => React.createElement('text', {
+      key: 'l' + i, x: pts[i].x, y: height - 4, textAnchor: 'middle', fontSize: 10, fill: theme.textMuted,
+      fontFamily: 'Inter, system-ui, sans-serif'
+    }, d.month || d.label || ''))
+  );
+}
+
+// SVG Bar Chart
+function BarChart({ data, width = 300, height = 160, colorFn }) {
+  const { theme } = useTheme();
+  const pad = { top: 8, bottom: 24, left: 40, right: 8 };
+  const w = width - pad.left - pad.right;
+  const h = height - pad.top - pad.bottom;
+  const max = Math.max(...data.map(d => Math.abs(d.value))) * 1.15;
+  const barW = Math.min(32, (w / data.length) * 0.6);
+  const gap = (w - barW * data.length) / (data.length + 1);
+
+  return React.createElement('svg', { width, height, viewBox: `0 0 ${width} ${height}`, style: { display: 'block' } },
+    data.map((d, i) => {
+      const x = pad.left + gap + i * (barW + gap);
+      const barH = (Math.abs(d.value) / max) * h;
+      const y = pad.top + h - barH;
+      const color = colorFn ? colorFn(d) : theme.primary;
+      return React.createElement('g', { key: i },
+        React.createElement('rect', { x, y, width: barW, height: barH, rx: 4, fill: color, opacity: 0.85 }),
+        React.createElement('text', { x: x + barW / 2, y: height - 6, textAnchor: 'middle', fontSize: 10, fill: theme.textMuted, fontFamily: 'Inter, system-ui, sans-serif' }, d.label),
+        React.createElement('text', { x: x + barW / 2, y: y - 4, textAnchor: 'middle', fontSize: 10, fill: theme.textSecondary, fontFamily: 'Inter, system-ui, sans-serif', fontWeight: 600 }, d.displayValue || d.value.toFixed(1))
+      );
+    })
+  );
+}
+
+// Horizontal waterfall-style bar
+function WaterfallBar({ items, width = 400, height = 200 }) {
+  const { theme } = useTheme();
+  const pad = { top: 16, bottom: 8, left: 120, right: 60 };
+  const w = width - pad.left - pad.right;
+  const h = height - pad.top - pad.bottom;
+  const rowH = Math.min(28, h / items.length);
+  const maxVal = Math.max(...items.map(d => Math.abs(d.value)));
+
+  return React.createElement('svg', { width, height, viewBox: `0 0 ${width} ${height}`, style: { display: 'block' } },
+    items.map((item, i) => {
+      const y = pad.top + i * rowH;
+      const barW = (Math.abs(item.value) / maxVal) * w;
+      const isNeg = item.value < 0;
+      const color = isNeg ? theme.error : theme.success;
+      return React.createElement('g', { key: i },
+        React.createElement('text', { x: pad.left - 8, y: y + rowH / 2 + 4, textAnchor: 'end', fontSize: 12, fill: theme.text, fontFamily: 'Inter, system-ui, sans-serif' }, item.name),
+        React.createElement('rect', { x: pad.left, y: y + 4, width: barW, height: rowH - 10, rx: 4, fill: color, opacity: 0.2 }),
+        React.createElement('rect', { x: pad.left, y: y + 4, width: barW, height: rowH - 10, rx: 4, fill: color, opacity: 0.7 }),
+        React.createElement('text', { x: pad.left + barW + 6, y: y + rowH / 2 + 4, fontSize: 11, fill: color, fontWeight: 600, fontFamily: 'Inter, system-ui, sans-serif' },
+          (isNeg ? '' : '+') + item.value.toFixed(1) + '%')
+      );
+    })
+  );
+}
+
+// Donut chart
+function DonutChart({ segments, size = 120, strokeWidth = 18 }) {
+  const { theme } = useTheme();
+  const r = (size - strokeWidth) / 2;
+  const cx = size / 2, cy = size / 2;
+  const circ = 2 * Math.PI * r;
+  let offset = 0;
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+
+  return React.createElement('svg', { width: size, height: size, viewBox: `0 0 ${size} ${size}` },
+    React.createElement('circle', { cx, cy, r, fill: 'none', stroke: theme.border, strokeWidth }),
+    segments.map((seg, i) => {
+      const pct = seg.value / total;
+      const dash = pct * circ;
+      const el = React.createElement('circle', {
+        key: i, cx, cy, r, fill: 'none', stroke: seg.color, strokeWidth,
+        strokeDasharray: `${dash} ${circ - dash}`,
+        strokeDashoffset: -offset,
+        strokeLinecap: 'round',
+        transform: `rotate(-90 ${cx} ${cy})`,
+      });
+      offset += dash;
+      return el;
+    })
+  );
+}
+
+// Mini sparkline
+function Sparkline({ data, width = 60, height = 20, color }) {
+  const { theme } = useTheme();
+  color = color || theme.primary;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * width},${height - ((v - min) / range) * (height - 4) - 2}`).join(' ');
+  return React.createElement('svg', { width, height, style: { display: 'inline-block', verticalAlign: 'middle' } },
+    React.createElement('polyline', { points: pts, fill: 'none', stroke: color, strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round' })
+  );
+}
+
+// Icon components (simple SVG)
+function Icon({ name, size = 18, color }) {
+  const { theme } = useTheme();
+  color = color || theme.textSecondary;
+  const paths = {
+    dashboard: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+    plant: 'M12 2L2 7v15h20V7L12 2zM7 20v-5h4v5H7zm6 0v-5h4v5h-4z',
+    chart: 'M3 3v18h18M7 14l4-4 4 4 4-6',
+    product: 'M20 7H4c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zM8 15H4v-2h4v2zm6 0h-4v-2h4v2zm6 0h-4v-2h4v2z',
+    material: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93z',
+    scenario: 'M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4zM5 3h14c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2z',
+    alert: 'M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2zm0-6h2v4h-2z',
+    sun: 'M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1z',
+    moon: 'M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z',
+    chevron: 'M9 18l6-6-6-6',
+    menu: 'M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z',
+    refresh: 'M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z',
+    ai: 'M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7h1.27c.34-.6.99-1 1.73-1a2 2 0 010 4c-.74 0-1.39-.4-1.73-1H20a7 7 0 01-7 7v1.27c.6.34 1 .99 1 1.73a2 2 0 01-4 0c0-.74.4-1.39 1-1.73V23a7 7 0 01-7-7H2.73c-.34.6-.99 1-1.73 1a2 2 0 010-4c.74 0 1.39.4 1.73 1H4a7 7 0 017-7V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z',
+    search: 'M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5z',
+    risk: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z',
+    playbook: 'M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z',
+    close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+    check: 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z',
+    settings: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
+  };
+  const d = paths[name] || paths.dashboard;
+  return React.createElement('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', style: { flexShrink: 0 } },
+    React.createElement('path', { d, fill: color, fillRule: 'evenodd' })
+  );
+}
+
+// Animated number counter
+function AnimatedNumber({ value, prefix = '', suffix = '', decimals = 1, duration = 800 }) {
+  const [display, setDisplay] = React.useState(0);
+  React.useEffect(() => {
+    let start = 0;
+    const startTime = performance.now();
+    const tick = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(eased * value);
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [value]);
+  return React.createElement('span', null, prefix + display.toFixed(decimals) + suffix);
+}
+
+// Table component
+function DataTable({ columns, rows, onRowClick }) {
+  const { theme } = useTheme();
+  return React.createElement('div', { style: { overflowX: 'auto' } },
+    React.createElement('table', {
+      style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: 'Inter, system-ui, sans-serif' }
+    },
+      React.createElement('thead', null,
+        React.createElement('tr', null,
+          columns.map((col, i) => React.createElement('th', {
+            key: i,
+            style: {
+              padding: '10px 12px', textAlign: col.align || 'left', fontWeight: 600,
+              color: theme.textSecondary, borderBottom: `2px solid ${theme.border}`,
+              fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5,
+            }
+          }, col.label))
+        )
+      ),
+      React.createElement('tbody', null,
+        rows.map((row, ri) => React.createElement('tr', {
+          key: ri,
+          onClick: () => onRowClick && onRowClick(row),
+          style: { cursor: onRowClick ? 'pointer' : 'default', transition: 'background 0.15s' },
+          onMouseEnter: (e) => e.currentTarget.style.background = theme.primaryBg,
+          onMouseLeave: (e) => e.currentTarget.style.background = 'transparent',
+        },
+          columns.map((col, ci) => React.createElement('td', {
+            key: ci,
+            style: {
+              padding: '10px 12px', textAlign: col.align || 'left',
+              borderBottom: `1px solid ${theme.border}`, color: theme.text,
+              fontFamily: col.mono ? 'ui-monospace, "Fira Code", monospace' : 'inherit',
+            }
+          }, col.render ? col.render(row) : row[col.key]))
+        ))
+      )
+    )
+  );
+}
+
+Object.assign(window, { Card, Badge, SeverityBadge, TrendArrow, MarginTrendArrow, AreaChart, BarChart, WaterfallBar, DonutChart, Sparkline, Icon, AnimatedNumber, DataTable });
+
+  </script>
+
+  <!-- Interactive Chart Components -->
+  <script>
+// Interactive chart components with tooltips, trend lines, anomaly markers, click-through
+function Tooltip({ x, y, children, visible }) {
+  const { theme } = useTheme();
+  if (!visible) return null;
+  return ReactDOM.createPortal(
+    React.createElement('div', {
+      style: {
+        position: 'fixed', left: x + 12, top: y - 10, zIndex: 9999,
+        background: theme.name === 'dark' ? '#1E293B' : '#fff',
+        border: `1px solid ${theme.border}`, borderRadius: 8, padding: '8px 12px',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.15)', fontSize: 12, color: theme.text,
+        pointerEvents: 'none', maxWidth: 260, fontFamily: 'Inter, system-ui, sans-serif',
+      }
+    }, children),
+    document.body
+  );
+}
+
+// Interactive Area Chart with plan/actual/forecast, anomaly markers, tooltips, click
+function InteractiveAreaChart({ data, width = 600, height = 220, onClickPoint }) {
+  const { theme } = useTheme();
+  const [hover, setHover] = React.useState(null);
+  const [mousePos, setMousePos] = React.useState({ x: 0, y: 0 });
+
+  const pad = { top: 20, bottom: 28, left: 40, right: 16 };
+  const w = width - pad.left - pad.right;
+  const h = height - pad.top - pad.bottom;
+
+  const allValues = data.flatMap(d => [d.actual, d.plan, d.forecast].filter(v => v != null));
+  const min = Math.min(...allValues) - 1;
+  const max = Math.max(...allValues) + 1;
+  const range = max - min;
+
+  const toX = (i) => pad.left + (i / (data.length - 1)) * w;
+  const toY = (v) => pad.top + h - ((v - min) / range) * h;
+
+  const actualPts = data.filter(d => d.actual != null).map((d, i) => ({ x: toX(data.indexOf(d)), y: toY(d.actual), d }));
+  const planPts = data.map((d, i) => ({ x: toX(i), y: toY(d.plan), d }));
+  const forecastPts = data.filter(d => d.forecast != null).map((d, i) => ({ x: toX(data.indexOf(d)), y: toY(d.forecast), d }));
+
+  // Connect actual to forecast
+  const lastActual = data.filter(d => d.actual != null);
+  const bridgePt = lastActual.length > 0 ? { x: toX(data.indexOf(lastActual[lastActual.length - 1])), y: toY(lastActual[lastActual.length - 1].actual) } : null;
+
+  const makeLine = (pts) => pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+  const makeArea = (pts) => {
+    if (pts.length < 2) return '';
+    return makeLine(pts) + ` L${pts[pts.length - 1].x.toFixed(1)},${pad.top + h} L${pts[0].x.toFixed(1)},${pad.top + h} Z`;
+  };
+
+  const gid = React.useRef('iac-' + Math.random().toString(36).slice(2, 7)).current;
+  const anomalies = data.filter(d => d.anomaly);
+
+  return React.createElement('div', { style: { position: 'relative' } },
+    React.createElement('svg', {
+      width, height, viewBox: `0 0 ${width} ${height}`, style: { display: 'block' },
+      onMouseLeave: () => setHover(null),
+    },
+      React.createElement('defs', null,
+        React.createElement('linearGradient', { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 },
+          React.createElement('stop', { offset: '0%', stopColor: theme.primary, stopOpacity: 0.25 }),
+          React.createElement('stop', { offset: '100%', stopColor: theme.primary, stopOpacity: 0.02 })
+        ),
+        React.createElement('linearGradient', { id: gid + '-f', x1: 0, y1: 0, x2: 0, y2: 1 },
+          React.createElement('stop', { offset: '0%', stopColor: theme.info, stopOpacity: 0.15 }),
+          React.createElement('stop', { offset: '100%', stopColor: theme.info, stopOpacity: 0.02 })
+        )
+      ),
+      // Grid lines
+      [0, 0.25, 0.5, 0.75, 1].map(pct => {
+        const y = pad.top + h * (1 - pct);
+        const val = (min + range * pct).toFixed(1);
+        return React.createElement('g', { key: pct },
+          React.createElement('line', { x1: pad.left, x2: width - pad.right, y1: y, y2: y, stroke: theme.border, strokeDasharray: '2,4' }),
+          React.createElement('text', { x: pad.left - 6, y: y + 4, textAnchor: 'end', fontSize: 10, fill: theme.textMuted, fontFamily: 'ui-monospace, monospace' }, val + '%')
+        );
+      }),
+      // Plan line (dashed)
+      React.createElement('path', { d: makeLine(planPts), fill: 'none', stroke: theme.textMuted, strokeWidth: 1.5, strokeDasharray: '6,4', opacity: 0.5 }),
+      // Actual area + line
+      actualPts.length > 1 && React.createElement('path', { d: makeArea(actualPts), fill: `url(#${gid})` }),
+      actualPts.length > 1 && React.createElement('path', { d: makeLine(actualPts), fill: 'none', stroke: theme.primary, strokeWidth: 2.5, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+      // Forecast area + line
+      forecastPts.length > 0 && bridgePt && React.createElement('path', {
+        d: makeLine([bridgePt, ...forecastPts]),
+        fill: 'none', stroke: theme.info, strokeWidth: 2, strokeDasharray: '6,3', strokeLinecap: 'round',
+      }),
+      forecastPts.length > 1 && React.createElement('path', { d: makeArea(forecastPts), fill: `url(#${gid}-f)` }),
+      // Anomaly markers
+      anomalies.map((d, i) => {
+        const idx = data.indexOf(d);
+        const x = toX(idx);
+        const y = toY(d.actual);
+        return React.createElement('g', { key: 'a' + i },
+          React.createElement('circle', { cx: x, cy: y, r: 12, fill: theme.error, opacity: 0.15 }),
+          React.createElement('circle', { cx: x, cy: y, r: 6, fill: theme.error, opacity: 0.3 }),
+          React.createElement('text', { x: x, y: y - 16, textAnchor: 'middle', fontSize: 9, fill: theme.error, fontWeight: 600, fontFamily: 'Inter, sans-serif' }, '⚠')
+        );
+      }),
+      // Dots + hit areas
+      data.map((d, i) => {
+        const x = toX(i);
+        const val = d.actual ?? d.forecast;
+        if (val == null) return null;
+        const y = toY(val);
+        const isHovered = hover === i;
+        const color = d.actual != null ? theme.primary : theme.info;
+        return React.createElement('g', { key: i },
+          React.createElement('rect', {
+            x: x - 20, y: pad.top, width: 40, height: h, fill: 'transparent', cursor: 'pointer',
+            onMouseEnter: (e) => { setHover(i); setMousePos({ x: e.clientX, y: e.clientY }); },
+            onMouseMove: (e) => setMousePos({ x: e.clientX, y: e.clientY }),
+            onClick: () => onClickPoint && onClickPoint(d),
+          }),
+          isHovered && React.createElement('line', { x1: x, x2: x, y1: pad.top, y2: pad.top + h, stroke: theme.primary, strokeWidth: 1, opacity: 0.3, strokeDasharray: '3,3' }),
+          React.createElement('circle', { cx: x, cy: y, r: isHovered ? 5 : 3, fill: theme.bgCard, stroke: color, strokeWidth: 2, style: { transition: 'r 0.15s' } })
+        );
+      }),
+      // X labels
+      data.map((d, i) => React.createElement('text', {
+        key: 'xl' + i, x: toX(i), y: height - 6, textAnchor: 'middle', fontSize: 10,
+        fill: hover === i ? theme.text : theme.textMuted, fontWeight: hover === i ? 600 : 400,
+        fontFamily: 'Inter, sans-serif',
+      }, d.month))
+    ),
+    // Tooltip
+    hover !== null && React.createElement(Tooltip, { x: mousePos.x, y: mousePos.y, visible: true },
+      React.createElement('div', { style: { fontWeight: 600, marginBottom: 4 } }, data[hover].month),
+      data[hover].actual != null && React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 16 } },
+        React.createElement('span', { style: { color: theme.textMuted } }, 'Actual'),
+        React.createElement('span', { style: { fontWeight: 600, fontFamily: 'ui-monospace, monospace', color: theme.primary } }, data[hover].actual.toFixed(1) + '%')
+      ),
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 16 } },
+        React.createElement('span', { style: { color: theme.textMuted } }, 'Plan'),
+        React.createElement('span', { style: { fontFamily: 'ui-monospace, monospace' } }, data[hover].plan.toFixed(1) + '%')
+      ),
+      data[hover].forecast != null && React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 16 } },
+        React.createElement('span', { style: { color: theme.textMuted } }, 'Forecast'),
+        React.createElement('span', { style: { fontFamily: 'ui-monospace, monospace', color: theme.info } }, data[hover].forecast.toFixed(1) + '%')
+      ),
+      data[hover].anomaly && React.createElement('div', { style: { marginTop: 4, padding: '4px 6px', background: theme.errorBg, borderRadius: 4, color: theme.error, fontSize: 11 } }, '⚠ ' + data[hover].anomaly)
+    )
+  );
+}
+
+// Interactive Bar Chart with tooltips
+function InteractiveBarChart({ data, width = 500, height = 200, colorFn, onClickBar }) {
+  const { theme } = useTheme();
+  const [hover, setHover] = React.useState(null);
+  const [mousePos, setMousePos] = React.useState({ x: 0, y: 0 });
+
+  const pad = { top: 16, bottom: 28, left: 8, right: 8 };
+  const w = width - pad.left - pad.right;
+  const h = height - pad.top - pad.bottom;
+  const max = Math.max(...data.map(d => Math.abs(d.value))) * 1.15;
+  const barW = Math.min(36, (w / data.length) * 0.55);
+  const gap = (w - barW * data.length) / (data.length + 1);
+
+  return React.createElement('div', { style: { position: 'relative' } },
+    React.createElement('svg', {
+      width, height, viewBox: `0 0 ${width} ${height}`, style: { display: 'block' },
+      onMouseLeave: () => setHover(null),
+    },
+      data.map((d, i) => {
+        const x = pad.left + gap + i * (barW + gap);
+        const barH = (Math.abs(d.value) / max) * h;
+        const y = pad.top + h - barH;
+        const color = colorFn ? colorFn(d) : theme.primary;
+        const isHovered = hover === i;
+        return React.createElement('g', { key: i },
+          React.createElement('rect', {
+            x, y: isHovered ? y - 2 : y, width: barW, height: isHovered ? barH + 2 : barH,
+            rx: 4, fill: color, opacity: isHovered ? 1 : 0.8,
+            style: { transition: 'all 0.15s', cursor: onClickBar ? 'pointer' : 'default' },
+            onMouseEnter: (e) => { setHover(i); setMousePos({ x: e.clientX, y: e.clientY }); },
+            onMouseMove: (e) => setMousePos({ x: e.clientX, y: e.clientY }),
+            onClick: () => onClickBar && onClickBar(d),
+          }),
+          React.createElement('text', {
+            x: x + barW / 2, y: height - 6, textAnchor: 'middle', fontSize: 10,
+            fill: isHovered ? theme.text : theme.textMuted, fontWeight: isHovered ? 600 : 400,
+            fontFamily: 'Inter, sans-serif',
+          }, d.label),
+          React.createElement('text', {
+            x: x + barW / 2, y: y - 6, textAnchor: 'middle', fontSize: 10,
+            fill: isHovered ? color : theme.textSecondary, fontWeight: 600,
+            fontFamily: 'ui-monospace, monospace', opacity: isHovered ? 1 : 0.7,
+          }, d.displayValue || d.value.toFixed(1))
+        );
+      })
+    ),
+    hover !== null && data[hover].tooltipContent && React.createElement(Tooltip, { x: mousePos.x, y: mousePos.y, visible: true }, data[hover].tooltipContent)
+  );
+}
+
+// AI Insight Chip — small annotation for charts
+function AIInsightChip({ text, type = 'insight' }) {
+  const { theme } = useTheme();
+  const colors = { insight: theme.primary, warning: theme.warning, opportunity: theme.success };
+  const icons = { insight: '✦', warning: '⚠', opportunity: '↗' };
+  return React.createElement('div', {
+    style: {
+      display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px',
+      borderRadius: 6, fontSize: 11, fontWeight: 500, lineHeight: 1.4,
+      background: colors[type] + '12', color: colors[type], border: `1px solid ${colors[type]}25`,
+    }
+  },
+    React.createElement('span', null, icons[type]),
+    text
+  );
+}
+
+Object.assign(window, { Tooltip, InteractiveAreaChart, InteractiveBarChart, AIInsightChip });
+
+  </script>
+
+  <!-- SVG Map Components -->
+  <script>
+// SVG World Map for supply chain + US Map for plants
+// Simplified SVG paths for major land masses
+
+const WORLD_PATHS = {
+  northAmerica: 'M55,55 L130,35 L145,55 L140,85 L120,105 L100,100 L80,110 L60,95 L45,75 Z',
+  southAmerica: 'M100,115 L115,120 L120,145 L115,185 L100,195 L90,175 L85,145 L90,120 Z',
+  europe: 'M195,42 L220,35 L235,42 L230,60 L215,65 L200,60 L195,50 Z',
+  africa: 'M195,70 L225,65 L235,80 L230,120 L215,140 L195,130 L185,100 L190,80 Z',
+  asia: 'M235,30 L320,25 L340,50 L330,75 L300,85 L270,70 L250,80 L235,65 L230,45 Z',
+  oceania: 'M305,120 L340,115 L350,130 L340,145 L315,140 L305,130 Z',
+  russia: 'M235,25 L330,15 L350,30 L340,45 L280,40 L250,35 Z',
+};
+
+// Risk zone overlay regions
+const RISK_ZONES = [
+  { id: 'seAsia', path: 'M295,60 L325,55 L335,70 L320,80 L300,75 Z', level: 'high', label: 'SE Asia' },
+  { id: 'easternEurope', path: 'M225,35 L250,30 L255,45 L240,50 L225,45 Z', level: 'medium', label: 'E. Europe' },
+];
+
+function WorldMap({ materials, onClickSupplier, width = 700, height = 340 }) {
+  const { theme } = useTheme();
+  const [hover, setHover] = React.useState(null);
+  const [mousePos, setMousePos] = React.useState({ x: 0, y: 0 });
+  const [riskFilter, setRiskFilter] = React.useState('all');
+
+  // Convert lat/lng to map x/y (simple mercator-ish)
+  const toMapX = (lng) => ((lng + 180) / 360) * (width * 0.9) + width * 0.05;
+  const toMapY = (lat) => ((90 - lat) / 140) * (height * 0.85) + height * 0.05;
+
+  const filtered = riskFilter === 'all' ? materials : materials.filter(m => m.risk === riskFilter);
+  const riskColors = { High: theme.error, Medium: theme.warning, Low: theme.success };
+
+  return React.createElement('div', null,
+    // Filters
+    React.createElement('div', { style: { display: 'flex', gap: 6, marginBottom: 12 } },
+      ['all', 'High', 'Medium', 'Low'].map(f => React.createElement('button', {
+        key: f, onClick: () => setRiskFilter(f),
+        style: {
+          padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+          border: `1px solid ${riskFilter === f ? (f === 'all' ? theme.primary : riskColors[f]) : theme.border}`,
+          background: riskFilter === f ? (f === 'all' ? theme.primaryBg : riskColors[f] + '15') : 'transparent',
+          color: riskFilter === f ? (f === 'all' ? theme.primary : riskColors[f]) : theme.textMuted,
+        }
+      }, f === 'all' ? 'All Suppliers' : f + ' Risk'))
+    ),
+    React.createElement('svg', { width, height, viewBox: `0 0 ${width} ${height}`, style: { display: 'block', borderRadius: 8, background: theme.name === 'dark' ? '#0B1120' : '#F0F4FA' } },
+      // Land masses
+      Object.entries(WORLD_PATHS).map(([key, d]) => React.createElement('path', {
+        key, d, fill: theme.name === 'dark' ? '#1E293B' : '#E2E8F0',
+        stroke: theme.name === 'dark' ? '#334155' : '#CBD5E1', strokeWidth: 0.5,
+      })),
+      // Risk zones
+      RISK_ZONES.map(zone => React.createElement('g', { key: zone.id },
+        React.createElement('path', {
+          d: zone.path, fill: riskColors[zone.level === 'high' ? 'High' : 'Medium'],
+          opacity: 0.12, stroke: riskColors[zone.level === 'high' ? 'High' : 'Medium'],
+          strokeWidth: 1, strokeDasharray: '4,2',
+        }),
+        React.createElement('text', {
+          x: 0, y: 0, fontSize: 9, fill: riskColors[zone.level === 'high' ? 'High' : 'Medium'],
+          fontFamily: 'Inter, sans-serif', fontWeight: 600, opacity: 0.7,
+          transform: `translate(${zone.path.match(/M(\d+),(\d+)/)?.[1] || 0}, ${(parseInt(zone.path.match(/M(\d+),(\d+)/)?.[2]) || 0) - 5})`,
+        }, zone.label)
+      )),
+      // Connection lines from suppliers to US (center point)
+      filtered.map(mat => {
+        const sx = toMapX(mat.lng);
+        const sy = toMapY(mat.lat);
+        const ex = toMapX(-85); // rough US center
+        const ey = toMapY(38);
+        const mx = (sx + ex) / 2;
+        const my = Math.min(sy, ey) - 20;
+        return React.createElement('path', {
+          key: 'line-' + mat.id,
+          d: `M${sx},${sy} Q${mx},${my} ${ex},${ey}`,
+          fill: 'none', stroke: riskColors[mat.risk], strokeWidth: 1, opacity: 0.3,
+          strokeDasharray: '4,3',
+        });
+      }),
+      // Supplier pins
+      filtered.map((mat, i) => {
+        const x = toMapX(mat.lng);
+        const y = toMapY(mat.lat);
+        const isHovered = hover === mat.id;
+        const color = riskColors[mat.risk];
+        return React.createElement('g', {
+          key: mat.id,
+          style: { cursor: 'pointer' },
+          onMouseEnter: (e) => { setHover(mat.id); setMousePos({ x: e.clientX, y: e.clientY }); },
+          onMouseMove: (e) => setMousePos({ x: e.clientX, y: e.clientY }),
+          onMouseLeave: () => setHover(null),
+          onClick: () => onClickSupplier && onClickSupplier(mat),
+        },
+          React.createElement('circle', { cx: x, cy: y, r: isHovered ? 14 : 10, fill: color, opacity: 0.15 }),
+          React.createElement('circle', { cx: x, cy: y, r: isHovered ? 7 : 5, fill: color, stroke: '#fff', strokeWidth: 1.5 }),
+          isHovered && React.createElement('circle', { cx: x, cy: y, r: 18, fill: 'none', stroke: color, strokeWidth: 1, opacity: 0.4 })
+        );
+      }),
+      // Legend
+      React.createElement('g', { transform: `translate(${width - 120}, ${height - 50})` },
+        [{ label: 'High Risk', color: theme.error }, { label: 'Medium', color: theme.warning }, { label: 'Low', color: theme.success }].map((l, i) =>
+          React.createElement('g', { key: i, transform: `translate(0, ${i * 14})` },
+            React.createElement('circle', { cx: 5, cy: 0, r: 4, fill: l.color }),
+            React.createElement('text', { x: 14, y: 3, fontSize: 10, fill: theme.textMuted, fontFamily: 'Inter, sans-serif' }, l.label)
+          )
+        )
+      )
+    ),
+    // Tooltip
+    hover && React.createElement(Tooltip, { x: mousePos.x, y: mousePos.y, visible: true },
+      (() => {
+        const mat = materials.find(m => m.id === hover);
+        if (!mat) return null;
+        return React.createElement('div', null,
+          React.createElement('div', { style: { fontWeight: 600, marginBottom: 4 } }, mat.name),
+          React.createElement('div', { style: { fontSize: 11, color: theme.textMuted, marginBottom: 6 } }, mat.supplier + ' · ' + mat.country),
+          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 12 } },
+            React.createElement('span', { style: { color: theme.textMuted } }, 'Cost'), React.createElement('span', { style: { fontWeight: 600, fontFamily: 'ui-monospace, monospace' } }, '$' + mat.cost.toFixed(2) + mat.unit)),
+          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 12 } },
+            React.createElement('span', { style: { color: theme.textMuted } }, '6M Change'), React.createElement('span', { style: { fontWeight: 600, color: riskColors[mat.risk] } }, '+' + mat.change + '%')),
+          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 12 } },
+            React.createElement('span', { style: { color: theme.textMuted } }, 'Spend'), React.createElement('span', { style: { fontWeight: 600, fontFamily: 'ui-monospace, monospace' } }, fmt.currency(mat.spend))),
+        );
+      })()
+    )
+  );
+}
+
+// US Map for plants and distribution centers
+function USMap({ plants, distributionCenters, onClickSite, width = 700, height = 340 }) {
+  const { theme } = useTheme();
+  const [hover, setHover] = React.useState(null);
+  const [mousePos, setMousePos] = React.useState({ x: 0, y: 0 });
+  const [viewMode, setViewMode] = React.useState('map'); // map or network
+
+  // Simple US projection
+  const toX = (lng) => ((lng + 130) / 65) * (width * 0.85) + width * 0.07;
+  const toY = (lat) => ((50 - lat) / 25) * (height * 0.8) + height * 0.08;
+
+  const marginColor = (m) => m > 32 ? theme.success : m > 27 ? theme.primary : m < 25 ? theme.error : theme.warning;
+
+  const US_OUTLINE = 'M70,60 L130,40 L250,35 L380,40 L480,50 L530,55 L560,80 L570,120 L550,160 L520,190 L470,210 L400,220 L320,230 L250,225 L180,230 L120,220 L80,200 L60,170 L50,130 L55,90 Z';
+
+  if (viewMode === 'network') {
+    // Network flow diagram
+    const allSites = [...plants.map(p => ({ ...p, siteType: 'plant' })), ...distributionCenters.map(d => ({ ...d, siteType: 'dc' }))];
+    const spacing = width / (allSites.length + 1);
+
+    return React.createElement('div', null,
+      React.createElement('div', { style: { display: 'flex', gap: 6, marginBottom: 12 } },
+        ['map', 'network'].map(v => React.createElement('button', {
+          key: v, onClick: () => setViewMode(v),
+          style: { padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', border: `1px solid ${viewMode === v ? theme.primary : theme.border}`, background: viewMode === v ? theme.primaryBg : 'transparent', color: viewMode === v ? theme.primary : theme.textMuted }
+        }, v === 'map' ? 'Map View' : 'Network View'))
+      ),
+      React.createElement('svg', { width, height: 280, viewBox: `0 0 ${width} 280`, style: { display: 'block', borderRadius: 8, background: theme.name === 'dark' ? '#0B1120' : '#F8FAFC' } },
+        // Flow lines from plants to DCs
+        plants.map((p, pi) => distributionCenters.map((dc, di) => {
+          const px = 100 + pi * 130;
+          const dx = 100 + di * 160;
+          return React.createElement('path', {
+            key: `${pi}-${di}`,
+            d: `M${px},100 C${px},160 ${dx},140 ${dx},190`,
+            fill: 'none', stroke: theme.primary, strokeWidth: 1, opacity: 0.15, strokeDasharray: '3,3',
+          });
+        })),
+        // Plants (top row)
+        plants.map((p, i) => {
+          const x = 100 + i * 130;
+          const y = 70;
+          const color = marginColor(p.margin);
+          const isHov = hover === p.id;
+          return React.createElement('g', {
+            key: p.id, style: { cursor: 'pointer' },
+            onMouseEnter: (e) => { setHover(p.id); setMousePos({ x: e.clientX, y: e.clientY }); },
+            onMouseMove: (e) => setMousePos({ x: e.clientX, y: e.clientY }),
+            onMouseLeave: () => setHover(null),
+            onClick: () => onClickSite && onClickSite(p),
+          },
+            React.createElement('rect', { x: x - 24, y: y - 24, width: 48, height: 48, rx: 10, fill: color + '18', stroke: color, strokeWidth: isHov ? 2 : 1 }),
+            React.createElement('text', { x, y: y + 4, textAnchor: 'middle', fontSize: 14, fontWeight: 700, fill: color, fontFamily: 'ui-monospace, monospace' }, p.margin.toFixed(0) + '%'),
+            React.createElement('text', { x, y: y + 40, textAnchor: 'middle', fontSize: 10, fill: theme.text, fontFamily: 'Inter, sans-serif', fontWeight: 500 }, p.name.split(',')[0]),
+            React.createElement('text', { x, y: y - 30, textAnchor: 'middle', fontSize: 9, fill: theme.textMuted, fontFamily: 'Inter, sans-serif' }, 'Plant'),
+          );
+        }),
+        // DCs (bottom row)
+        distributionCenters.map((dc, i) => {
+          const x = 100 + i * 160;
+          const y = 210;
+          const isHov = hover === dc.id;
+          return React.createElement('g', {
+            key: dc.id, style: { cursor: 'pointer' },
+            onMouseEnter: (e) => { setHover(dc.id); setMousePos({ x: e.clientX, y: e.clientY }); },
+            onMouseMove: (e) => setMousePos({ x: e.clientX, y: e.clientY }),
+            onMouseLeave: () => setHover(null),
+          },
+            React.createElement('rect', { x: x - 20, y: y - 20, width: 40, height: 40, rx: 8, fill: theme.infoBg, stroke: theme.info, strokeWidth: isHov ? 2 : 1 }),
+            React.createElement('text', { x, y: y + 4, textAnchor: 'middle', fontSize: 10, fontWeight: 600, fill: theme.info, fontFamily: 'Inter, sans-serif' }, 'DC'),
+            React.createElement('text', { x, y: y + 34, textAnchor: 'middle', fontSize: 10, fill: theme.text, fontFamily: 'Inter, sans-serif' }, dc.name.split(',')[0]),
+            React.createElement('text', { x, y: y - 26, textAnchor: 'middle', fontSize: 9, fill: theme.textMuted }, dc.throughput),
+          );
+        }),
+      )
+    );
+  }
+
+  // Map view
+  return React.createElement('div', null,
+    React.createElement('div', { style: { display: 'flex', gap: 6, marginBottom: 12 } },
+      ['map', 'network'].map(v => React.createElement('button', {
+        key: v, onClick: () => setViewMode(v),
+        style: { padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', border: `1px solid ${viewMode === v ? theme.primary : theme.border}`, background: viewMode === v ? theme.primaryBg : 'transparent', color: viewMode === v ? theme.primary : theme.textMuted }
+      }, v === 'map' ? 'Map View' : 'Network View'))
+    ),
+    React.createElement('svg', { width, height, viewBox: `0 0 ${width} ${height}`, style: { display: 'block', borderRadius: 8, background: theme.name === 'dark' ? '#0B1120' : '#F0F4FA' } },
+      // US outline
+      React.createElement('path', { d: US_OUTLINE, fill: theme.name === 'dark' ? '#1E293B' : '#E2E8F0', stroke: theme.name === 'dark' ? '#334155' : '#CBD5E1', strokeWidth: 1 }),
+      // Flow lines between plants and DCs
+      plants.map(p => distributionCenters.map(dc => {
+        const px = toX(p.lng), py = toY(p.lat), dx = toX(dc.lng), dy = toY(dc.lat);
+        return React.createElement('line', { key: p.id + dc.id, x1: px, y1: py, x2: dx, y2: dy, stroke: theme.primary, strokeWidth: 0.5, opacity: 0.15, strokeDasharray: '2,3' });
+      })),
+      // DC pins
+      distributionCenters.map(dc => {
+        const x = toX(dc.lng), y = toY(dc.lat);
+        const isHov = hover === dc.id;
+        return React.createElement('g', {
+          key: dc.id, style: { cursor: 'pointer' },
+          onMouseEnter: (e) => { setHover(dc.id); setMousePos({ x: e.clientX, y: e.clientY }); },
+          onMouseMove: (e) => setMousePos({ x: e.clientX, y: e.clientY }),
+          onMouseLeave: () => setHover(null),
+        },
+          React.createElement('rect', { x: x - 8, y: y - 8, width: 16, height: 16, rx: 3, fill: theme.info, opacity: isHov ? 0.9 : 0.6, stroke: '#fff', strokeWidth: 1 }),
+          React.createElement('text', { x, y: y + 3, textAnchor: 'middle', fontSize: 8, fill: '#fff', fontWeight: 700 }, 'DC'),
+        );
+      }),
+      // Plant pins
+      plants.map(p => {
+        const x = toX(p.lng), y = toY(p.lat);
+        const color = marginColor(p.margin);
+        const isHov = hover === p.id;
+        return React.createElement('g', {
+          key: p.id, style: { cursor: 'pointer' },
+          onMouseEnter: (e) => { setHover(p.id); setMousePos({ x: e.clientX, y: e.clientY }); },
+          onMouseMove: (e) => setMousePos({ x: e.clientX, y: e.clientY }),
+          onMouseLeave: () => setHover(null),
+          onClick: () => onClickSite && onClickSite(p),
+        },
+          React.createElement('circle', { cx: x, cy: y, r: isHov ? 18 : 14, fill: color, opacity: 0.15 }),
+          React.createElement('circle', { cx: x, cy: y, r: isHov ? 10 : 8, fill: color, stroke: '#fff', strokeWidth: 2 }),
+          React.createElement('text', { x, y: y + 3, textAnchor: 'middle', fontSize: 8, fill: '#fff', fontWeight: 700, fontFamily: 'ui-monospace, monospace' }, p.margin.toFixed(0)),
+          React.createElement('text', { x, y: y + 22, textAnchor: 'middle', fontSize: 9, fill: theme.text, fontWeight: 500, fontFamily: 'Inter, sans-serif' }, p.name.split(',')[0]),
+        );
+      }),
+    ),
+    hover && React.createElement(Tooltip, { x: mousePos.x, y: mousePos.y, visible: true },
+      (() => {
+        const site = plants.find(p => p.id === hover) || distributionCenters.find(d => d.id === hover);
+        if (!site) return null;
+        return React.createElement('div', null,
+          React.createElement('div', { style: { fontWeight: 600, marginBottom: 4 } }, site.name),
+          React.createElement('div', { style: { fontSize: 11, color: theme.textMuted, marginBottom: 4 } }, site.type),
+          site.margin != null && React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 16 } },
+            React.createElement('span', { style: { color: theme.textMuted } }, 'Margin'),
+            React.createElement('span', { style: { fontWeight: 600, color: marginColor(site.margin), fontFamily: 'ui-monospace, monospace' } }, site.margin.toFixed(1) + '%')),
+          site.revenue && React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 16 } },
+            React.createElement('span', { style: { color: theme.textMuted } }, 'Revenue'),
+            React.createElement('span', { style: { fontWeight: 600, fontFamily: 'ui-monospace, monospace' } }, fmt.currency(site.revenue))),
+          site.efficiency && React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 16 } },
+            React.createElement('span', { style: { color: theme.textMuted } }, 'OEE'),
+            React.createElement('span', { style: { fontWeight: 600, fontFamily: 'ui-monospace, monospace' } }, site.efficiency + '%')),
+          site.throughput && React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 16 } },
+            React.createElement('span', { style: { color: theme.textMuted } }, 'Throughput'),
+            React.createElement('span', { style: { fontWeight: 600 } }, site.throughput)),
+        );
+      })()
+    )
+  );
+}
+
+Object.assign(window, { WorldMap, USMap });
+
+  </script>
+
+  <!-- AI Chat Panel + Insight Cards -->
+  <script>
+// AI Chat Panel + AI Insight Cards
+function AIChatPanel({ visible, onClose, context }) {
+  const { theme } = useTheme();
+  const [messages, setMessages] = React.useState(SAMPLE_DATA.aiChatHistory);
+  const [input, setInput] = React.useState('');
+  const [typing, setTyping] = React.useState(false);
+  const scrollRef = React.useRef(null);
+
+  const aiResponses = {
+    'margin': 'Gross margin is currently 29.1%, down 1.9pp from the 31.0% target. The primary drivers are:\n\n• **Materials** (+2.1% cost increase): Steel and copper prices surging due to SE Asia disruption\n• **Labor** (+0.8%): Houston plant overtime driving costs up\n• **Freight** (+0.4%): Shipping delays increasing logistics costs\n\nThe AI optimization agent recommends shifting 15% of V-50 production to Portland as the highest-ROI action.',
+    'houston': 'Houston plant (P3) is the weakest performer at 24.1% margin, 3.4pp below target. Key issues:\n\n• OEE at 78.9% — lowest in fleet (target: 90%+)\n• Gearbox GB-400 and Motor M-100 production concentrated here with declining margins\n• Labor costs elevated due to 12% overtime increase\n\n**Recommended**: Redistribute 20% of GB-400 production to Portland. Projected margin recovery: +2.1pp. Payback period: 4 weeks.',
+    'copper': 'Copper wire (Grade A) is your highest-risk material at $8.94/kg, up 14.6% over 6 months. Freeport-McMoRan is sole supplier.\n\n**Impact**: 5 SKUs affected, $2.1M projected annual margin impact.\n\n**Options ranked by ROI**:\n1. 6-month forward contract at spot: locks in current price, avoids projected 12% further increase\n2. Qualify aluminum substitute for V-50 housing: saves $800K/yr, 8-week engineering review\n3. Dual-source with secondary supplier: reduces risk, adds ~3% cost premium',
+    'forecast': 'The 60-day forecast projects margin recovery to 30.4% by June (82% confidence).\n\n**Upside drivers**: Seasonal demand uptick (+$45M revenue), new BS-75 contracts, FS-12 price increase\n**Downside risks**: Steel tariff decision (45 days), copper futures trending up, Houston plant efficiency\n\nThe confidence interval is 29.2% (bear case) to 31.1% (bull case). Key swing factor: steel tariff outcome.',
+    'default': 'I can help you analyze any aspect of your margin performance. Try asking about:\n\n• Specific plants ("Tell me about Houston")\n• Materials and supply chain risks ("What\'s happening with copper?")\n• Product profitability ("Which products are losing margin?")\n• Forecasts and scenarios ("What\'s the 60-day outlook?")\n• Recommended actions ("What should we do about rising costs?")',
+  };
+
+  const getResponse = (query) => {
+    const q = query.toLowerCase();
+    if (q.includes('margin') && !q.includes('houston')) return aiResponses.margin;
+    if (q.includes('houston') || q.includes('plant')) return aiResponses.houston;
+    if (q.includes('copper') || q.includes('material') || q.includes('supply')) return aiResponses.copper;
+    if (q.includes('forecast') || q.includes('outlook') || q.includes('predict')) return aiResponses.forecast;
+    return aiResponses.default;
+  };
+
+  const handleSend = () => {
+    if (!input.trim()) return;
+    const userMsg = { role: 'user', text: input };
+    setMessages(m => [...m, userMsg]);
+    setInput('');
+    setTyping(true);
+    setTimeout(() => {
+      setMessages(m => [...m, { role: 'assistant', text: getResponse(input) }]);
+      setTyping(false);
+    }, 800 + Math.random() * 600);
+  };
+
+  React.useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, typing]);
+
+  if (!visible) return null;
+
+  return React.createElement('div', {
+    style: {
+      position: 'fixed', right: 0, top: 0, bottom: 0, width: 380, zIndex: 100,
+      background: theme.bgCard, borderLeft: `1px solid ${theme.border}`,
+      display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 24px rgba(0,0,0,0.1)',
+      animation: 'fadeIn 0.2s ease-out',
+    }
+  },
+    // Header
+    React.createElement('div', {
+      style: { padding: '14px 16px', borderBottom: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', gap: 10 }
+    },
+      React.createElement('div', {
+        style: { width: 30, height: 30, borderRadius: 8, background: `linear-gradient(135deg, ${theme.primary}, ${theme.primaryLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }
+      }, React.createElement(Icon, { name: 'ai', size: 16, color: '#fff' })),
+      React.createElement('div', { style: { flex: 1 } },
+        React.createElement('div', { style: { fontSize: 13, fontWeight: 700 } }, 'AI Assistant'),
+        React.createElement('div', { style: { fontSize: 11, color: theme.success } }, '● Online · Analyzing your data'),
+      ),
+      React.createElement('button', {
+        onClick: onClose,
+        style: { padding: 6, borderRadius: 6, border: 'none', background: theme.bgAlt, cursor: 'pointer', display: 'flex' }
+      }, React.createElement(Icon, { name: 'close', size: 14 }))
+    ),
+    // Context chip
+    context && React.createElement('div', {
+      style: { padding: '8px 16px', background: theme.primaryBg, borderBottom: `1px solid ${theme.border}`, fontSize: 11, color: theme.primary, display: 'flex', alignItems: 'center', gap: 6 }
+    }, '📌 Context: ', React.createElement('strong', null, context)),
+    // Messages
+    React.createElement('div', {
+      ref: scrollRef,
+      style: { flex: 1, overflow: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }
+    },
+      messages.map((msg, i) => React.createElement('div', {
+        key: i,
+        style: { display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }
+      },
+        React.createElement('div', {
+          style: {
+            maxWidth: '90%', padding: '10px 14px', borderRadius: 12,
+            background: msg.role === 'user' ? theme.primary : theme.bgAlt,
+            color: msg.role === 'user' ? '#fff' : theme.text,
+            fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap',
+            borderBottomRightRadius: msg.role === 'user' ? 4 : 12,
+            borderBottomLeftRadius: msg.role === 'user' ? 12 : 4,
+          }
+        }, msg.text.split('**').map((part, j) => j % 2 === 1 ? React.createElement('strong', { key: j }, part) : part))
+      )),
+      typing && React.createElement('div', { style: { display: 'flex', gap: 4, padding: '10px 14px', background: theme.bgAlt, borderRadius: 12, borderBottomLeftRadius: 4, width: 'fit-content' } },
+        [0, 1, 2].map(i => React.createElement('div', {
+          key: i,
+          style: { width: 6, height: 6, borderRadius: '50%', background: theme.textMuted, animation: `pulse 1s ease-in-out ${i * 0.15}s infinite` }
+        }))
+      )
+    ),
+    // Quick suggestions
+    React.createElement('div', { style: { padding: '8px 16px', display: 'flex', gap: 6, flexWrap: 'wrap', borderTop: `1px solid ${theme.border}` } },
+      ['Why is margin dropping?', 'Houston plant status', 'Copper risk exposure', '60-day forecast'].map(q => React.createElement('button', {
+        key: q,
+        onClick: () => { setInput(q); setTimeout(() => { setInput(q); handleSend(); }, 50); },
+        style: { padding: '4px 10px', borderRadius: 12, border: `1px solid ${theme.border}`, background: 'transparent', color: theme.textSecondary, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }
+      }, q))
+    ),
+    // Input
+    React.createElement('div', {
+      style: { padding: '12px 16px', borderTop: `1px solid ${theme.border}`, display: 'flex', gap: 8 }
+    },
+      React.createElement('input', {
+        value: input, onChange: (e) => setInput(e.target.value),
+        onKeyDown: (e) => e.key === 'Enter' && handleSend(),
+        placeholder: 'Ask about margins, costs, risks...',
+        style: {
+          flex: 1, padding: '8px 12px', borderRadius: 8, border: `1px solid ${theme.border}`,
+          background: theme.bg, color: theme.text, fontSize: 13, outline: 'none', fontFamily: 'inherit',
+        }
+      }),
+      React.createElement('button', {
+        onClick: handleSend,
+        style: { padding: '8px 14px', borderRadius: 8, border: 'none', background: theme.primary, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 13 }
+      }, '→')
+    )
+  );
+}
+
+// AI Insight Card with expandable details and actions
+function AIInsightCard({ insight, onAction, compact = false }) {
+  const { theme } = useTheme();
+  const [expanded, setExpanded] = React.useState(false);
+  const typeConfig = {
+    root_cause: { color: theme.error, bg: theme.errorBg, icon: '🔍', label: 'Root Cause' },
+    optimization: { color: theme.success, bg: theme.successBg, icon: '⚡', label: 'Optimization' },
+    forecast: { color: theme.info, bg: theme.infoBg, icon: '📈', label: 'Forecast' },
+    alert_suggestion: { color: theme.warning, bg: theme.warningBg, icon: '💡', label: 'AI Suggestion' },
+  };
+  const cfg = typeConfig[insight.type] || typeConfig.root_cause;
+
+  if (compact) {
+    return React.createElement('div', {
+      style: { padding: '8px 12px', borderRadius: 8, border: `1px solid ${cfg.color}25`, background: cfg.color + '08', fontSize: 12, color: theme.text, lineHeight: 1.5, cursor: 'pointer' },
+      onClick: () => setExpanded(!expanded),
+    },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: expanded ? 6 : 0 } },
+        React.createElement('span', null, cfg.icon),
+        React.createElement('span', { style: { fontWeight: 600, fontSize: 11, color: cfg.color } }, cfg.label),
+        React.createElement('span', { style: { marginLeft: 'auto', fontSize: 10, color: theme.textMuted } }, insight.confidence + '% conf.'),
+      ),
+      expanded && React.createElement('div', { style: { color: theme.textSecondary, lineHeight: 1.6, whiteSpace: 'pre-wrap' } },
+        insight.text.split('**').map((part, j) => j % 2 === 1 ? React.createElement('strong', { key: j, style: { color: theme.text } }, part) : part)
+      )
+    );
+  }
+
+  return React.createElement(Card, {
+    style: { padding: 16, borderLeft: `3px solid ${cfg.color}`, cursor: 'pointer' },
+    onClick: () => setExpanded(!expanded), hoverable: true,
+  },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: expanded ? 10 : 0 } },
+      React.createElement('span', { style: { fontSize: 16 } }, cfg.icon),
+      React.createElement(Badge, { text: cfg.label, color: cfg.color, bg: cfg.color + '18' }),
+      React.createElement('span', { style: { fontSize: 13, fontWeight: 600, flex: 1 } }, insight.title),
+      React.createElement('span', { style: { fontSize: 11, color: theme.textMuted } }, insight.confidence + '% conf.'),
+      React.createElement('span', { style: { fontSize: 14, color: theme.textMuted, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' } }, '›'),
+    ),
+    expanded && React.createElement('div', null,
+      React.createElement('p', { style: { fontSize: 13, color: theme.textSecondary, lineHeight: 1.7, margin: '0 0 12px', whiteSpace: 'pre-wrap' } },
+        insight.text.split('**').map((part, j) => j % 2 === 1 ? React.createElement('strong', { key: j, style: { color: theme.text } }, part) : part)
+      ),
+      insight.actions && React.createElement('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+        insight.actions.map((a, j) => React.createElement('button', {
+          key: j,
+          onClick: (e) => { e.stopPropagation(); onAction && onAction(a); },
+          style: { padding: '5px 12px', borderRadius: 6, border: `1px solid ${cfg.color}30`, background: cfg.color + '10', color: cfg.color, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+        }, a))
+      )
+    )
+  );
+}
+
+Object.assign(window, { AIChatPanel, AIInsightCard });
+
+  </script>
+
+  <!-- Control Tower Page -->
+  <script>
+// Control Tower v2 - Executive Dashboard with rich interactivity
+function ControlTowerV2({ setPage, openChat, setDrillContext }) {
+  const { theme } = useTheme();
+  const d = SAMPLE_DATA;
+  const [aiExpanded, setAiExpanded] = React.useState(0);
+
+  const kpiCards = [
+    { label: 'Gross Margin', value: d.kpis.grossMargin, suffix: '%', target: d.kpis.grossMarginTarget, variance: d.kpis.grossMarginVariance, color: theme.primary, drillPage: 'margin-categories' },
+    { label: 'Margin $', value: d.kpis.marginDollars / 1e6, prefix: '$', suffix: 'M', varianceDollar: d.kpis.marginDollarsVariance, color: theme.primary, drillPage: 'margin-categories' },
+    { label: '60-Day Forecast', value: d.kpis.forecastMargin, suffix: '%', confidence: d.kpis.forecastConfidence, color: theme.info, drillPage: null },
+    { label: 'Active Alerts', value: d.kpis.activeAlerts, suffix: '', critical: d.kpis.criticalAlerts, color: theme.warning, drillPage: 'alerts' },
+  ];
+
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1400 } },
+    // KPI cards
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 } },
+      kpiCards.map((kpi, i) => React.createElement(Card, {
+        key: i, style: { padding: 20 }, hoverable: true,
+        onClick: kpi.drillPage ? () => setPage(kpi.drillPage) : undefined,
+      },
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' } },
+          React.createElement('div', { style: { fontSize: 11, color: theme.textMuted, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 } }, kpi.label),
+          kpi.drillPage && React.createElement('span', { style: { fontSize: 11, color: theme.primary, fontWeight: 500 } }, 'Drill →'),
+        ),
+        React.createElement('div', { style: { fontSize: 32, fontWeight: 700, color: theme.text, fontFamily: 'ui-monospace, "Fira Code", monospace', lineHeight: 1, margin: '8px 0' } },
+          React.createElement(AnimatedNumber, { value: kpi.value, prefix: kpi.prefix || '', suffix: kpi.suffix, decimals: kpi.suffix === '%' ? 1 : 0 })
+        ),
+        kpi.variance !== undefined && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          React.createElement(MarginTrendArrow, { value: kpi.variance }),
+          React.createElement('span', { style: { fontSize: 11, color: theme.textMuted } }, `vs ${kpi.target}% target`)
+        ),
+        kpi.varianceDollar !== undefined && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          React.createElement('span', { style: { color: theme.error, fontSize: 13, fontWeight: 600, fontFamily: 'ui-monospace, monospace' } }, fmt.currency(kpi.varianceDollar)),
+          React.createElement('span', { style: { fontSize: 11, color: theme.textMuted } }, 'variance')
+        ),
+        kpi.confidence !== undefined && React.createElement('div', null,
+          React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 11, color: theme.textMuted, marginBottom: 4 } },
+            React.createElement('span', null, 'Confidence'), React.createElement('span', null, kpi.confidence + '%')),
+          React.createElement('div', { style: { height: 4, borderRadius: 2, background: theme.border } },
+            React.createElement('div', { style: { height: '100%', width: kpi.confidence + '%', borderRadius: 2, background: theme.info } }))
+        ),
+        kpi.critical !== undefined && React.createElement('div', { style: { fontSize: 12 } },
+          React.createElement('span', { style: { color: theme.error, fontWeight: 600 } }, kpi.critical + ' critical'),
+          React.createElement('span', { style: { color: theme.textMuted } }, ' require action')
+        )
+      ))
+    ),
+
+    // Main chart + AI insights
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 16 } },
+      // Margin Trend - Interactive
+      React.createElement(Card, { style: { padding: 20 } },
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
+          React.createElement('div', null,
+            React.createElement('div', { style: { fontSize: 15, fontWeight: 600 } }, 'Margin Trend · Plan vs. Actual vs. Forecast'),
+            React.createElement('div', { style: { fontSize: 12, color: theme.textMuted } }, '12-month rolling with 60-day forecast'),
+          ),
+          React.createElement('button', {
+            onClick: () => openChat('Margin trend analysis'),
+            style: { padding: '5px 10px', borderRadius: 6, border: `1px solid ${theme.primaryBorder}`, background: theme.primaryBg, color: theme.primary, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }
+          }, '✦ Ask AI')
+        ),
+        React.createElement(InteractiveAreaChart, {
+          data: d.marginTrend, width: 680, height: 220,
+          onClickPoint: (pt) => { if (pt.anomaly) { setDrillContext && setDrillContext(pt.anomaly); } },
+        }),
+        // Legend
+        React.createElement('div', { style: { display: 'flex', gap: 16, marginTop: 10 } },
+          [{ color: theme.primary, label: 'Actual', dash: false }, { color: theme.textMuted, label: 'Plan (31%)', dash: true }, { color: theme.info, label: 'Forecast', dash: true }, { color: theme.error, label: 'Anomaly', dot: true }].map((l, i) =>
+            React.createElement('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: theme.textMuted } },
+              l.dot ? React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: l.color, opacity: 0.6 } })
+                : React.createElement('div', { style: { width: 16, height: 2, background: l.color, borderRadius: 1, ...(l.dash ? { backgroundImage: `repeating-linear-gradient(90deg, ${l.color} 0 4px, transparent 4px 8px)`, background: 'none' } : {}) } }),
+              l.label
+            )
+          )
+        ),
+        // AI callout
+        React.createElement('div', { style: { marginTop: 12 } },
+          React.createElement(AIInsightChip, { text: 'Margin declining 2.1pp over 6 months — materials cost is primary driver', type: 'warning' }),
+        )
+      ),
+
+      // AI Insights panel
+      React.createElement(Card, { style: { padding: 20, display: 'flex', flexDirection: 'column' } },
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 } },
+          React.createElement('div', { style: { width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg, ${theme.primary}, ${theme.primaryLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+            React.createElement(Icon, { name: 'ai', size: 16, color: '#fff' })),
+          React.createElement('div', { style: { fontSize: 14, fontWeight: 600 } }, 'AI Agent Insights'),
+          React.createElement('span', { style: { marginLeft: 'auto', fontSize: 11, color: theme.success, fontWeight: 500 } }, '● Live'),
+        ),
+        React.createElement('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 8 } },
+          d.aiInsights.map((insight, i) => React.createElement(AIInsightCard, {
+            key: i, insight, compact: false,
+            onAction: (action) => {
+              if (action.includes('material')) setPage('materials');
+              else if (action.includes('plant')) setPage('plants');
+              else if (action.includes('scenario') || action.includes('simulation')) setPage('scenarios');
+              else if (action.includes('forecast')) openChat('60-day forecast details');
+              else openChat(action);
+            },
+          }))
+        ),
+        React.createElement('button', {
+          onClick: () => openChat(),
+          style: { marginTop: 12, padding: '8px', borderRadius: 8, border: `1px solid ${theme.primaryBorder}`, background: theme.primaryBg, color: theme.primary, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }
+        }, React.createElement(Icon, { name: 'ai', size: 14, color: theme.primary }), 'Open AI Chat')
+      )
+    ),
+
+    // Bottom: Alerts + Plant Map + Risk
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 16 } },
+      // Alerts with AI suggestions
+      React.createElement(Card, { style: { padding: 20 } },
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 } },
+          React.createElement('div', { style: { fontSize: 14, fontWeight: 600 } }, 'Active Alerts'),
+          React.createElement('div', { style: { display: 'flex', gap: 8 } },
+            React.createElement('button', { onClick: () => setPage('issues'), style: { fontSize: 12, color: theme.primary, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 } }, 'Issue Board →'),
+            React.createElement('button', { onClick: () => setPage('alerts'), style: { fontSize: 12, color: theme.primary, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 } }, 'All Alerts →'),
+          )
+        ),
+        React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+          d.alerts.slice(0, 5).map(alert => React.createElement('div', {
+            key: alert.id,
+            style: { padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, cursor: 'pointer', transition: 'all 0.15s' },
+            onClick: () => { setPage('issues'); },
+          },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 8 } },
+              React.createElement(SeverityBadge, { severity: alert.severity }),
+              React.createElement('div', { style: { flex: 1 } },
+                React.createElement('div', { style: { fontSize: 12, color: theme.text, lineHeight: 1.4 } }, alert.title),
+                React.createElement('div', { style: { fontSize: 11, color: theme.textMuted, marginTop: 2 } }, alert.time),
+              )
+            ),
+            alert.aiSuggestion && React.createElement('div', {
+              style: { marginTop: 8, padding: '6px 10px', borderRadius: 6, background: theme.primaryBg, border: `1px solid ${theme.primaryBorder}`, fontSize: 11, color: theme.primary, lineHeight: 1.5 }
+            }, '✦ ', alert.aiSuggestion.substring(0, 100) + '...')
+          ))
+        )
+      ),
+
+      // Plant map
+      React.createElement(Card, { style: { padding: 20 } },
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
+          React.createElement('div', { style: { fontSize: 14, fontWeight: 600 } }, 'Site Performance Map'),
+          React.createElement('button', { onClick: () => setPage('plants'), style: { fontSize: 12, color: theme.primary, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 } }, 'Plant Details →'),
+        ),
+        React.createElement(USMap, {
+          plants: d.plants, distributionCenters: d.distributionCenters,
+          width: 600, height: 280,
+          onClickSite: (site) => { if (site.margin) setPage('plants'); },
+        })
+      )
+    ),
+
+    // Data source bar
+    React.createElement(Card, { style: { padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 16, fontSize: 12 } },
+        React.createElement('span', { style: { color: theme.textMuted, fontWeight: 500 } }, 'Data Sources'),
+        ['ERP (SAP)', 'Foundry Gold', 'Commodity Feed', 'Interos', 'Geopolitical'].map(src => React.createElement('span', {
+          key: src, style: { display: 'flex', alignItems: 'center', gap: 4, color: theme.textSecondary }
+        }, React.createElement('span', { style: { width: 6, height: 6, borderRadius: '50%', background: theme.success, display: 'inline-block' } }), src))
+      ),
+      React.createElement('span', { style: { fontSize: 11, color: theme.textMuted } }, 'Last refresh: 3 min ago · Auto-refresh: 5min')
+    )
+  );
+}
+
+Object.assign(window, { ControlTowerV2 });
+
+  </script>
+
+  <!-- Plant Drill-Down Page -->
+  <script>
+// Plant Drill-Down v2 with US Map + richer data
+function PlantDrilldownV2({ setPage, openChat }) {
+  const { theme } = useTheme();
+  const d = SAMPLE_DATA;
+  const [selectedPlant, setSelectedPlant] = React.useState(d.plants[0]);
+
+  const costBreakdown = [
+    { name: 'Materials', value: selectedPlant.margin > 30 ? -0.8 : -2.1 },
+    { name: 'Labor', value: selectedPlant.margin > 30 ? 0.3 : -0.8 },
+    { name: 'Overhead', value: 0.2 },
+    { name: 'Freight', value: selectedPlant.margin > 28 ? -0.1 : -0.4 },
+    { name: 'Quality', value: selectedPlant.margin > 30 ? 0.1 : -0.3 },
+  ];
+
+  const marginByMonth = d.marginTrend.filter(m => m.actual != null).map(m => ({
+    ...m, plantActual: m.actual + (selectedPlant.variance * 0.5) + (Math.random() - 0.5) * 0.8,
+  }));
+
+  const plantProducts = d.products.slice(0, Math.min(selectedPlant.products, d.products.length));
+
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1400 } },
+    // Site map
+    React.createElement(Card, { style: { padding: 20 } },
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
+        React.createElement('div', { style: { fontSize: 15, fontWeight: 600 } }, 'Manufacturing Network'),
+        React.createElement('button', {
+          onClick: () => openChat(selectedPlant.name + ' performance'),
+          style: { padding: '5px 10px', borderRadius: 6, border: `1px solid ${theme.primaryBorder}`, background: theme.primaryBg, color: theme.primary, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }
+        }, '✦ Ask AI about ' + selectedPlant.name.split(',')[0])
+      ),
+      React.createElement(USMap, {
+        plants: d.plants, distributionCenters: d.distributionCenters,
+        width: 900, height: 300,
+        onClickSite: (site) => { if (site.margin) setSelectedPlant(site); },
+      }),
+      // AI callout for selected plant
+      selectedPlant.margin < 27 && React.createElement('div', { style: { marginTop: 12 } },
+        React.createElement(AIInsightChip, {
+          text: `${selectedPlant.name.split(',')[0]} underperforming at ${selectedPlant.margin}% — production rebalancing could recover +${Math.abs(selectedPlant.variance).toFixed(1)}pp`,
+          type: 'warning',
+        })
+      ),
+      selectedPlant.efficiency > 92 && React.createElement('div', { style: { marginTop: 12 } },
+        React.createElement(AIInsightChip, {
+          text: `${selectedPlant.name.split(',')[0]} is best-in-class at ${selectedPlant.efficiency}% OEE — replicate practices across fleet`,
+          type: 'opportunity',
+        })
+      ),
+    ),
+
+    // Plant selector + KPIs
+    React.createElement('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+      d.plants.map(plant => React.createElement('button', {
+        key: plant.id, onClick: () => setSelectedPlant(plant),
+        style: {
+          padding: '10px 16px', borderRadius: 8,
+          border: `1px solid ${selectedPlant.id === plant.id ? theme.primary : theme.border}`,
+          background: selectedPlant.id === plant.id ? theme.primaryBg : theme.bgCard,
+          color: selectedPlant.id === plant.id ? theme.primary : theme.text,
+          cursor: 'pointer', fontSize: 13, fontFamily: 'inherit',
+          fontWeight: selectedPlant.id === plant.id ? 600 : 400, transition: 'all 0.15s',
+        }
+      },
+        React.createElement('div', null, plant.name),
+        React.createElement('div', { style: { fontSize: 11, marginTop: 2, color: selectedPlant.id === plant.id ? theme.primary : theme.textMuted, display: 'flex', gap: 8 } },
+          React.createElement('span', null, plant.margin.toFixed(1) + '% margin'),
+          React.createElement('span', null, plant.efficiency + '% OEE'),
+        )
+      ))
+    ),
+
+    // KPIs
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 } },
+      [
+        { label: 'Margin', value: selectedPlant.margin.toFixed(1) + '%', sub: React.createElement(MarginTrendArrow, { value: selectedPlant.variance }), click: () => setPage('margin-categories') },
+        { label: 'Revenue', value: fmt.currency(selectedPlant.revenue), sub: 'Annual run rate' },
+        { label: 'OEE', value: selectedPlant.efficiency.toFixed(1) + '%', sub: selectedPlant.efficiency > 90 ? '✓ Above target' : '⚠ Below 90%' },
+        { label: 'Employees', value: selectedPlant.employees, sub: selectedPlant.type },
+        { label: 'Products', value: selectedPlant.products, sub: plantProducts.filter(p => p.margin < 25).length + ' below threshold' },
+      ].map((kpi, i) => React.createElement(Card, {
+        key: i, style: { padding: 14 }, hoverable: !!kpi.click, onClick: kpi.click,
+      },
+        React.createElement('div', { style: { fontSize: 10, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 } }, kpi.label),
+        React.createElement('div', { style: { fontSize: 22, fontWeight: 700, fontFamily: 'ui-monospace, "Fira Code", monospace' } }, kpi.value),
+        React.createElement('div', { style: { fontSize: 11, color: theme.textMuted, marginTop: 3 } }, kpi.sub)
+      ))
+    ),
+
+    // Charts
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 } },
+      // Waterfall
+      React.createElement(Card, { style: { padding: 20 } },
+        React.createElement('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 4 } }, 'Margin Variance Decomposition'),
+        React.createElement('div', { style: { fontSize: 12, color: theme.textMuted, marginBottom: 12 } }, 'Plan vs. actual by cost category — click to drill'),
+        React.createElement(WaterfallBar, { items: costBreakdown, width: 550, height: 170 }),
+        React.createElement('div', { style: { marginTop: 10 } },
+          React.createElement(AIInsightChip, {
+            text: 'Materials cost is ' + Math.abs(costBreakdown[0].value).toFixed(1) + 'pp unfavorable — ' + (selectedPlant.margin < 27 ? 'critical driver of underperformance' : 'largest variance category'),
+            type: 'insight',
+          })
+        )
+      ),
+      // Efficiency
+      React.createElement(Card, { style: { padding: 20 } },
+        React.createElement('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 4 } }, 'OEE Efficiency Trend'),
+        React.createElement('div', { style: { fontSize: 12, color: theme.textMuted, marginBottom: 12 } }, 'Monthly with fleet average comparison'),
+        React.createElement(InteractiveBarChart, {
+          data: ['Jan', 'Feb', 'Mar', 'Apr'].map((m, i) => ({
+            label: m,
+            value: selectedPlant.efficiency - 4 + i * 1.5 + (Math.random() - 0.5),
+            displayValue: (selectedPlant.efficiency - 4 + i * 1.5).toFixed(1) + '%',
+            tooltipContent: React.createElement('div', null,
+              React.createElement('div', { style: { fontWeight: 600 } }, m + ' OEE'),
+              React.createElement('div', null, 'Fleet avg: 86.8%')
+            ),
+          })),
+          width: 550, height: 200,
+          colorFn: (d) => d.value > 90 ? theme.success : d.value > 80 ? theme.warning : theme.error,
+        })
+      )
+    ),
+
+    // Products
+    React.createElement(Card, { style: { padding: 20 } },
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 } },
+        React.createElement('div', { style: { fontSize: 14, fontWeight: 600 } }, 'Products at ' + selectedPlant.name),
+        React.createElement('button', { onClick: () => setPage('products'), style: { fontSize: 12, color: theme.primary, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 } }, 'Full Product View →'),
+      ),
+      React.createElement(DataTable, {
+        columns: [
+          { key: 'name', label: 'Product' },
+          { key: 'family', label: 'Family' },
+          { key: 'margin', label: 'Margin', align: 'right', mono: true, render: (r) => React.createElement('span', { style: { color: r.margin < 25 ? theme.error : r.margin > 35 ? theme.success : theme.text, fontWeight: 600 } }, r.margin.toFixed(1) + '%') },
+          { key: 'cost', label: 'Cost', align: 'right', mono: true, render: (r) => '$' + r.cost.toLocaleString() },
+          { key: 'price', label: 'Price', align: 'right', mono: true, render: (r) => '$' + r.price.toLocaleString() },
+          { key: 'volume', label: 'Volume', align: 'right', mono: true, render: (r) => r.volume.toLocaleString() },
+          { key: 'spark', label: '6M Trend', align: 'center', render: (r) => React.createElement(Sparkline, { data: r.marginTrend, width: 60, height: 20, color: r.trend === 'down' ? theme.error : r.trend === 'up' ? theme.success : theme.primary }) },
+          { key: 'trend', label: '', align: 'center', render: (r) => React.createElement(Badge, { text: r.trend, color: r.trend === 'up' ? theme.success : r.trend === 'down' ? theme.error : theme.textMuted, bg: r.trend === 'up' ? theme.successBg : r.trend === 'down' ? theme.errorBg : theme.bgAlt }) },
+        ],
+        rows: plantProducts,
+        onRowClick: () => setPage('products'),
+      })
+    )
+  );
+}
+
+Object.assign(window, { PlantDrilldownV2 });
+
+  </script>
+
+  <!-- Alerts & Monitoring Page -->
+  <script>
+// Alerts v2 with AI suggestions + drill-through
+function AlertsPageV2({ setPage, openChat }) {
+  const { theme } = useTheme();
+  const d = SAMPLE_DATA;
+  const [filter, setFilter] = React.useState('all');
+  const [expandedAlert, setExpandedAlert] = React.useState(null);
+
+  const filtered = filter === 'all' ? d.alerts : d.alerts.filter(a => a.severity === filter);
+  const counts = { all: d.alerts.length, critical: d.alerts.filter(a => a.severity === 'critical').length, high: d.alerts.filter(a => a.severity === 'high').length, medium: d.alerts.filter(a => a.severity === 'medium').length, low: d.alerts.filter(a => a.severity === 'low').length };
+  const severityColors = { critical: theme.error, high: '#EA580C', medium: theme.warning, low: theme.info };
+
+  const drillToEntity = (alert) => {
+    const e = alert.entity;
+    if (e.startsWith('P')) setPage('plants');
+    else if (e.startsWith('M')) setPage('materials');
+    else if (e.startsWith('SKU')) setPage('products');
+  };
+
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1400 } },
+    // Summary
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 } },
+      ['all', 'critical', 'high', 'medium', 'low'].map(f => React.createElement(Card, {
+        key: f, hoverable: true, onClick: () => setFilter(f),
+        style: { padding: 14, cursor: 'pointer', border: `1px solid ${filter === f ? (f === 'all' ? theme.primary : severityColors[f]) : theme.border}`, background: filter === f ? (f === 'all' ? theme.primaryBg : severityColors[f] + '08') : theme.bgCard },
+      },
+        React.createElement('div', { style: { fontSize: 24, fontWeight: 700, fontFamily: 'ui-monospace, monospace', color: f === 'all' ? theme.text : severityColors[f] } }, counts[f]),
+        React.createElement('div', { style: { fontSize: 11, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 } }, f === 'all' ? 'Total Alerts' : f)
+      ))
+    ),
+
+    // Alert list
+    React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+      filtered.map(alert => {
+        const isExpanded = expandedAlert === alert.id;
+        return React.createElement(Card, {
+          key: alert.id,
+          style: { padding: 0, borderLeft: `3px solid ${severityColors[alert.severity]}`, overflow: 'hidden' },
+        },
+          // Header
+          React.createElement('div', {
+            style: { padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 },
+            onClick: () => setExpandedAlert(isExpanded ? null : alert.id),
+          },
+            React.createElement(SeverityBadge, { severity: alert.severity }),
+            React.createElement('div', { style: { flex: 1 } },
+              React.createElement('div', { style: { fontSize: 13, fontWeight: 500, color: theme.text } }, alert.title),
+              React.createElement('div', { style: { fontSize: 11, color: theme.textMuted, marginTop: 2 } }, alert.time + ' · ' + alert.category + ' · Entity: ' + alert.entity),
+            ),
+            React.createElement(Badge, { text: alert.category, color: theme.textSecondary, bg: theme.bgAlt }),
+            React.createElement('span', { style: { fontSize: 16, color: theme.textMuted, transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block', marginLeft: 8 } }, '›'),
+          ),
+          // Expanded content
+          isExpanded && React.createElement('div', { style: { padding: '0 16px 16px', borderTop: `1px solid ${theme.border}` } },
+            // AI suggestion
+            alert.aiSuggestion && React.createElement('div', {
+              style: { margin: '12px 0', padding: 12, borderRadius: 8, background: theme.primaryBg, border: `1px solid ${theme.primaryBorder}` }
+            },
+              React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: theme.primary, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 } }, '✦ AI Suggested Action'),
+              React.createElement('div', { style: { fontSize: 13, color: theme.text, lineHeight: 1.6 } }, alert.aiSuggestion),
+            ),
+            // Actions
+            React.createElement('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+              React.createElement('button', {
+                onClick: () => drillToEntity(alert),
+                style: { padding: '6px 14px', borderRadius: 6, border: 'none', background: theme.primary, color: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+              }, 'Drill to Root Cause'),
+              React.createElement('button', {
+                onClick: () => setPage('issues'),
+                style: { padding: '6px 14px', borderRadius: 6, border: `1px solid ${theme.border}`, background: 'transparent', color: theme.textSecondary, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }
+              }, 'Create Issue'),
+              React.createElement('button', {
+                onClick: () => setPage('scenarios'),
+                style: { padding: '6px 14px', borderRadius: 6, border: `1px solid ${theme.border}`, background: 'transparent', color: theme.textSecondary, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }
+              }, 'Run Scenario'),
+              React.createElement('button', {
+                onClick: () => openChat(alert.title),
+                style: { padding: '6px 14px', borderRadius: 6, border: `1px solid ${theme.primaryBorder}`, background: theme.primaryBg, color: theme.primary, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+              }, '✦ Ask AI'),
+              React.createElement('button', {
+                style: { padding: '6px 14px', borderRadius: 6, border: `1px solid ${theme.border}`, background: 'transparent', color: theme.textMuted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }
+              }, 'Dismiss'),
+            )
+          )
+        );
+      })
+    )
+  );
+}
+
+Object.assign(window, { AlertsPageV2 });
+
+  </script>
+
+  <!-- Issue Tracker Page -->
+  <script>
+// Issue Tracker - Kanban + Timeline
+function IssueTracker({ setPage, setDrillContext }) {
+  const { theme } = useTheme();
+  const d = SAMPLE_DATA;
+  const [selectedIssue, setSelectedIssue] = React.useState(null);
+  const [viewMode, setViewMode] = React.useState('board');
+
+  const statuses = [
+    { id: 'open', label: 'Open', color: theme.error },
+    { id: 'investigating', label: 'Investigating', color: theme.warning },
+    { id: 'solving', label: 'Solving', color: theme.info },
+    { id: 'solved', label: 'Resolved', color: theme.success },
+  ];
+
+  const severityColors = { critical: theme.error, high: '#EA580C', medium: theme.warning, low: theme.info };
+  const timelineColors = { alert: theme.error, ai: theme.primary, assign: theme.info, action: theme.success, resolve: theme.success };
+  const timelineIcons = { alert: '⚠', ai: '✦', assign: '👤', action: '✓', resolve: '✓' };
+
+  if (selectedIssue) {
+    const issue = d.issues.find(i => i.id === selectedIssue);
+    if (!issue) return null;
+    const relatedAlerts = d.alerts.filter(a => issue.alertIds.includes(a.id));
+
+    return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1400 } },
+      React.createElement('button', {
+        onClick: () => setSelectedIssue(null),
+        style: { alignSelf: 'flex-start', padding: '6px 14px', borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.bgCard, color: theme.textSecondary, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }
+      }, '← Back to board'),
+
+      // Issue header
+      React.createElement(Card, { style: { padding: 20 } },
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 } },
+          React.createElement(Badge, { text: issue.severity, color: severityColors[issue.severity], bg: severityColors[issue.severity] + '18' }),
+          React.createElement(Badge, { text: statuses.find(s => s.id === issue.status)?.label, color: statuses.find(s => s.id === issue.status)?.color, bg: statuses.find(s => s.id === issue.status)?.color + '18' }),
+          React.createElement('span', { style: { fontSize: 11, color: theme.textMuted, fontFamily: 'ui-monospace, monospace' } }, issue.id),
+        ),
+        React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, margin: '0 0 8px', color: theme.text } }, issue.title),
+        React.createElement('div', { style: { display: 'flex', gap: 16, fontSize: 12, color: theme.textMuted } },
+          React.createElement('span', null, 'Created: ' + issue.created),
+          issue.assignee && React.createElement('span', null, 'Assigned: ' + issue.assignee),
+        ),
+        issue.rootCause && React.createElement('div', { style: { marginTop: 12, padding: 12, borderRadius: 8, background: theme.primaryBg, border: `1px solid ${theme.primaryBorder}` } },
+          React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: theme.primary, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 } }, '✦ AI Root Cause'),
+          React.createElement('div', { style: { fontSize: 13, color: theme.text } }, issue.rootCause),
+        )
+      ),
+
+      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 } },
+        // Timeline
+        React.createElement(Card, { style: { padding: 20 } },
+          React.createElement('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 16 } }, 'Investigation Timeline'),
+          React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
+            issue.timeline.map((event, i) => React.createElement('div', {
+              key: i,
+              style: { display: 'flex', gap: 12, paddingBottom: i < issue.timeline.length - 1 ? 16 : 0 }
+            },
+              // Timeline dot + line
+              React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', width: 24 } },
+                React.createElement('div', {
+                  style: { width: 24, height: 24, borderRadius: '50%', background: timelineColors[event.type] + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, flexShrink: 0 }
+                }, timelineIcons[event.type]),
+                i < issue.timeline.length - 1 && React.createElement('div', { style: { width: 2, flex: 1, background: theme.border, marginTop: 4 } })
+              ),
+              React.createElement('div', { style: { flex: 1, paddingTop: 2 } },
+                React.createElement('div', { style: { fontSize: 13, color: theme.text, lineHeight: 1.4 } }, event.event),
+                React.createElement('div', { style: { fontSize: 11, color: theme.textMuted, marginTop: 2 } }, event.date),
+              )
+            ))
+          )
+        ),
+
+        // Related alerts + actions
+        React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
+          React.createElement(Card, { style: { padding: 20 } },
+            React.createElement('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 12 } }, 'Related Alerts'),
+            React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+              relatedAlerts.map(alert => React.createElement('div', {
+                key: alert.id,
+                style: { padding: 10, borderRadius: 6, border: `1px solid ${theme.border}`, fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }
+              },
+                React.createElement(SeverityBadge, { severity: alert.severity }),
+                React.createElement('span', { style: { flex: 1, color: theme.text } }, alert.title),
+                React.createElement('span', { style: { color: theme.textMuted, fontSize: 11 } }, alert.time),
+              ))
+            )
+          ),
+          React.createElement(Card, { style: { padding: 20 } },
+            React.createElement('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 12 } }, 'Actions Taken'),
+            issue.actions.length === 0
+              ? React.createElement('div', { style: { fontSize: 12, color: theme.textMuted, fontStyle: 'italic' } }, 'No actions yet — assign this issue to begin investigation')
+              : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+                  issue.actions.map((a, i) => React.createElement('div', {
+                    key: i, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: `1px solid ${theme.border}` }
+                  },
+                    React.createElement(Icon, { name: 'check', size: 14, color: theme.success }),
+                    React.createElement('span', { style: { fontSize: 12, color: theme.text } }, a),
+                  ))
+                ),
+            React.createElement('div', { style: { display: 'flex', gap: 8, marginTop: 12 } },
+              React.createElement('button', {
+                onClick: () => setPage('scenarios'),
+                style: { padding: '8px 16px', borderRadius: 6, border: 'none', background: theme.primary, color: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+              }, 'Create Scenario'),
+              React.createElement('button', {
+                style: { padding: '8px 16px', borderRadius: 6, border: `1px solid ${theme.border}`, background: 'transparent', color: theme.textSecondary, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }
+              }, 'Add Action'),
+            )
+          )
+        )
+      )
+    );
+  }
+
+  // Board view
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1400 } },
+    // View toggle
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+      React.createElement('div', { style: { display: 'flex', gap: 4, background: theme.bgAlt, borderRadius: 8, padding: 3 } },
+        ['board', 'list'].map(v => React.createElement('button', {
+          key: v, onClick: () => setViewMode(v),
+          style: { padding: '6px 16px', borderRadius: 6, border: 'none', cursor: 'pointer', background: viewMode === v ? theme.bgCard : 'transparent', boxShadow: viewMode === v ? theme.shadow : 'none', color: viewMode === v ? theme.primary : theme.textMuted, fontWeight: viewMode === v ? 600 : 400, fontSize: 12, fontFamily: 'inherit' }
+        }, v === 'board' ? 'Board' : 'List'))
+      ),
+      React.createElement('div', { style: { fontSize: 12, color: theme.textMuted } },
+        d.issues.length + ' issues · ' + d.issues.filter(i => i.severity === 'critical').length + ' critical')
+    ),
+
+    viewMode === 'board'
+      ? React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, alignItems: 'start' } },
+          statuses.map(status => {
+            const issues = d.issues.filter(i => i.status === status.id);
+            return React.createElement('div', { key: status.id, style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0' } },
+                React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: status.color } }),
+                React.createElement('span', { style: { fontSize: 13, fontWeight: 600, color: theme.text } }, status.label),
+                React.createElement('span', { style: { fontSize: 11, color: theme.textMuted, background: theme.bgAlt, padding: '1px 6px', borderRadius: 10 } }, issues.length),
+              ),
+              issues.map(issue => React.createElement(Card, {
+                key: issue.id, hoverable: true,
+                onClick: () => setSelectedIssue(issue.id),
+                style: { padding: 14, cursor: 'pointer' },
+              },
+                React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 } },
+                  React.createElement(Badge, { text: issue.severity, color: severityColors[issue.severity], bg: severityColors[issue.severity] + '18' }),
+                  React.createElement('span', { style: { fontSize: 10, color: theme.textMuted, fontFamily: 'ui-monospace, monospace' } }, issue.id),
+                ),
+                React.createElement('div', { style: { fontSize: 13, fontWeight: 500, color: theme.text, marginBottom: 8, lineHeight: 1.4 } }, issue.title),
+                React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                  issue.assignee
+                    ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: theme.textMuted } },
+                        React.createElement('div', { style: { width: 18, height: 18, borderRadius: '50%', background: theme.primaryBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 600, color: theme.primary } }, issue.assignee.charAt(0)),
+                        issue.assignee)
+                    : React.createElement('span', { style: { fontSize: 11, color: theme.textMuted, fontStyle: 'italic' } }, 'Unassigned'),
+                  React.createElement('span', { style: { fontSize: 10, color: theme.textMuted } }, issue.created),
+                ),
+                // AI suggestion preview
+                issue.alertIds.length > 0 && React.createElement('div', {
+                  style: { marginTop: 8, padding: '6px 8px', borderRadius: 6, background: theme.primaryBg, fontSize: 11, color: theme.primary, display: 'flex', alignItems: 'center', gap: 4 }
+                }, '✦ AI has suggestions')
+              ))
+            );
+          })
+        )
+      : React.createElement(Card, { style: { padding: 20 } },
+          React.createElement(DataTable, {
+            columns: [
+              { key: 'id', label: 'ID', mono: true },
+              { key: 'title', label: 'Issue' },
+              { key: 'severity', label: 'Severity', render: (r) => React.createElement(Badge, { text: r.severity, color: severityColors[r.severity], bg: severityColors[r.severity] + '18' }) },
+              { key: 'status', label: 'Status', render: (r) => React.createElement(Badge, { text: statuses.find(s => s.id === r.status)?.label, color: statuses.find(s => s.id === r.status)?.color, bg: statuses.find(s => s.id === r.status)?.color + '18' }) },
+              { key: 'assignee', label: 'Assignee', render: (r) => r.assignee || React.createElement('span', { style: { fontStyle: 'italic', color: theme.textMuted } }, 'Unassigned') },
+              { key: 'created', label: 'Created' },
+            ],
+            rows: d.issues,
+            onRowClick: (r) => setSelectedIssue(r.id),
+          })
+        )
+  );
+}
+
+Object.assign(window, { IssueTracker });
+
+  </script>
+
+  <!-- Margin Categories Page -->
+  <script>
+// Margin Categories Page
+function MarginCategories({ setPage }) {
+  const { theme } = useTheme();
+  const d = SAMPLE_DATA;
+  const [view, setView] = React.useState('cost');
+
+  const revenueCategories = [
+    { name: 'Volume', pct: 55, variance: -1.2, amount: 1155000000, trend: 'down' },
+    { name: 'Pricing', pct: 32, variance: 0.4, amount: 672000000, trend: 'up' },
+    { name: 'Mix', pct: 13, variance: -0.3, amount: 273000000, trend: 'stable' },
+  ];
+
+  const cats = view === 'cost' ? d.costCategories : revenueCategories;
+  const donutColors = [theme.primary, theme.primaryLight, theme.info, theme.warning, theme.success, theme.error];
+
+  // Heatmap data: category x plant
+  const heatmapData = d.costCategories.map(cat => ({
+    name: cat.name,
+    values: d.plants.map(p => {
+      const base = cat.variance;
+      const noise = (Math.sin(p.margin * 7 + cat.pct) * 1.5);
+      return +(base + noise).toFixed(1);
+    })
+  }));
+
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1400 } },
+    // Toggle cost/revenue
+    React.createElement('div', { style: { display: 'flex', gap: 4, background: theme.bgAlt, borderRadius: 8, padding: 3, width: 'fit-content' } },
+      ['cost', 'revenue'].map(v => React.createElement('button', {
+        key: v, onClick: () => setView(v),
+        style: {
+          padding: '8px 20px', borderRadius: 6, border: 'none', cursor: 'pointer',
+          background: view === v ? theme.bgCard : 'transparent', boxShadow: view === v ? theme.shadow : 'none',
+          color: view === v ? theme.primary : theme.textMuted, fontWeight: view === v ? 600 : 400,
+          fontSize: 13, fontFamily: 'inherit', transition: 'all 0.15s',
+        }
+      }, v === 'cost' ? 'Cost Categories' : 'Revenue Categories'))
+    ),
+
+    // Summary cards
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: `repeat(${cats.length}, 1fr)`, gap: 12 } },
+      cats.map((cat, i) => React.createElement(Card, { key: i, style: { padding: 16 }, hoverable: true },
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' } },
+          React.createElement('div', null,
+            React.createElement('div', { style: { fontSize: 12, color: theme.textMuted, fontWeight: 500, marginBottom: 4 } }, cat.name),
+            React.createElement('div', { style: { fontSize: 22, fontWeight: 700, fontFamily: 'ui-monospace, "Fira Code", monospace' } }, cat.pct + '%'),
+          ),
+          React.createElement('div', {
+            style: { width: 8, height: 8, borderRadius: '50%', background: donutColors[i], marginTop: 4 }
+          })
+        ),
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 } },
+          React.createElement('span', { style: { fontSize: 12, color: theme.textMuted } }, fmt.currency(cat.amount)),
+          React.createElement(TrendArrow, { value: cat.variance, size: 12 }),
+        )
+      ))
+    ),
+
+    // Charts row
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '300px 1fr', gap: 16 } },
+      // Donut
+      React.createElement(Card, { style: { padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' } },
+        React.createElement('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 16, alignSelf: 'flex-start' } },
+          view === 'cost' ? 'Cost Breakdown' : 'Revenue Breakdown'),
+        React.createElement('div', { style: { position: 'relative', width: 160, height: 160 } },
+          React.createElement(DonutChart, {
+            segments: cats.map((c, i) => ({ value: c.pct, color: donutColors[i] })), size: 160, strokeWidth: 24,
+          }),
+          React.createElement('div', { style: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' } },
+            React.createElement('div', { style: { fontSize: 20, fontWeight: 700, fontFamily: 'ui-monospace, "Fira Code", monospace' } }, '100%'),
+            React.createElement('div', { style: { fontSize: 11, color: theme.textMuted } }, 'Total'),
+          )
+        ),
+        React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 16, width: '100%' } },
+          cats.map((c, i) => React.createElement('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 } },
+            React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: donutColors[i] } }),
+            React.createElement('span', { style: { flex: 1, color: theme.text } }, c.name),
+            React.createElement('span', { style: { fontFamily: 'ui-monospace, "Fira Code", monospace', fontWeight: 600 } }, c.pct + '%'),
+          ))
+        )
+      ),
+
+      // Waterfall
+      React.createElement(Card, { style: { padding: 20 } },
+        React.createElement('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 4 } }, 'Variance by Category'),
+        React.createElement('div', { style: { fontSize: 12, color: theme.textMuted, marginBottom: 16 } }, 'Plan vs. actual contribution to margin change'),
+        React.createElement(WaterfallBar, { items: cats.map(c => ({ name: c.name, value: c.variance })), width: 700, height: 200 }),
+      )
+    ),
+
+    // Heatmap
+    React.createElement(Card, { style: { padding: 20 } },
+      React.createElement('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 4 } }, 'Cost Category × Plant Heatmap'),
+      React.createElement('div', { style: { fontSize: 12, color: theme.textMuted, marginBottom: 16 } }, 'Variance from plan (percentage points)'),
+      React.createElement('div', { style: { overflowX: 'auto' } },
+        React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%' } },
+          React.createElement('thead', null,
+            React.createElement('tr', null,
+              React.createElement('th', { style: { padding: '8px 12px', fontSize: 11, color: theme.textMuted, textAlign: 'left', fontWeight: 600 } }, ''),
+              d.plants.map(p => React.createElement('th', { key: p.id, style: { padding: '8px 12px', fontSize: 11, color: theme.textMuted, textAlign: 'center', fontWeight: 600 } }, p.name.split(',')[0]))
+            )
+          ),
+          React.createElement('tbody', null,
+            heatmapData.map((row, ri) => React.createElement('tr', { key: ri },
+              React.createElement('td', { style: { padding: '8px 12px', fontSize: 12, fontWeight: 500, color: theme.text } }, row.name),
+              row.values.map((v, ci) => {
+                const intensity = Math.min(Math.abs(v) / 3, 1);
+                const color = v < 0 ? theme.error : theme.success;
+                return React.createElement('td', {
+                  key: ci,
+                  style: { padding: '8px 12px', textAlign: 'center', fontSize: 12, fontWeight: 600, fontFamily: 'ui-monospace, "Fira Code", monospace', color, background: color + Math.round(intensity * 25).toString(16).padStart(2, '0'), borderRadius: 4 }
+                }, (v > 0 ? '+' : '') + v.toFixed(1));
+              })
+            ))
+          )
+        )
+      )
+    )
+  );
+}
+
+Object.assign(window, { MarginCategories });
+
+  </script>
+
+  <!-- Products & Costing Page -->
+  <script>
+// Products & Costing Page
+function ProductsCosting({ setPage }) {
+  const { theme } = useTheme();
+  const d = SAMPLE_DATA;
+  const [sortKey, setSortKey] = React.useState('margin');
+  const [sortDir, setSortDir] = React.useState(-1);
+  const [selectedProduct, setSelectedProduct] = React.useState(null);
+
+  const sorted = [...d.products].sort((a, b) => (a[sortKey] > b[sortKey] ? 1 : -1) * sortDir);
+
+  const handleSort = (key) => {
+    if (sortKey === key) setSortDir(d => d * -1);
+    else { setSortKey(key); setSortDir(-1); }
+  };
+
+  // Scatter data: price vs cost
+  const scatterW = 600, scatterH = 300;
+  const pad = { top: 20, bottom: 40, left: 50, right: 20 };
+  const maxCost = Math.max(...d.products.map(p => p.cost)) * 1.1;
+  const maxPrice = Math.max(...d.products.map(p => p.price)) * 1.1;
+
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1400 } },
+    // Summary row
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 } },
+      [
+        { label: 'Total Products', value: d.products.length, sub: 'Active SKUs' },
+        { label: 'Avg Margin', value: (d.products.reduce((s, p) => s + p.margin, 0) / d.products.length).toFixed(1) + '%', sub: 'Across portfolio' },
+        { label: 'Below Threshold', value: d.products.filter(p => p.margin < 25).length, sub: 'Margin < 25%', alert: true },
+        { label: 'Top Performer', value: d.products.reduce((a, b) => a.margin > b.margin ? a : b).margin.toFixed(1) + '%', sub: d.products.reduce((a, b) => a.margin > b.margin ? a : b).name.split(' ').slice(0, 2).join(' ') },
+      ].map((kpi, i) => React.createElement(Card, { key: i, style: { padding: 16 } },
+        React.createElement('div', { style: { fontSize: 11, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 } }, kpi.label),
+        React.createElement('div', { style: { fontSize: 24, fontWeight: 700, fontFamily: 'ui-monospace, "Fira Code", monospace', color: kpi.alert ? theme.error : theme.text } }, kpi.value),
+        React.createElement('div', { style: { fontSize: 12, color: theme.textMuted, marginTop: 4 } }, kpi.sub)
+      ))
+    ),
+
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 } },
+      // Scatter: Price vs Cost
+      React.createElement(Card, { style: { padding: 20 } },
+        React.createElement('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 4 } }, 'Price vs. Cost Analysis'),
+        React.createElement('div', { style: { fontSize: 12, color: theme.textMuted, marginBottom: 12 } }, 'Bubble size = volume · Color = margin health'),
+        React.createElement('svg', { width: scatterW, height: scatterH, viewBox: `0 0 ${scatterW} ${scatterH}`, style: { display: 'block' } },
+          // Grid lines
+          [0.25, 0.5, 0.75, 1].map(pct => React.createElement('line', {
+            key: 'h' + pct, x1: pad.left, x2: scatterW - pad.right,
+            y1: pad.top + (scatterH - pad.top - pad.bottom) * (1 - pct),
+            y2: pad.top + (scatterH - pad.top - pad.bottom) * (1 - pct),
+            stroke: theme.border, strokeDasharray: '3,3',
+          })),
+          // Break-even line (price = cost)
+          React.createElement('line', {
+            x1: pad.left, y1: scatterH - pad.bottom, x2: scatterW - pad.right, y2: pad.top,
+            stroke: theme.error, strokeWidth: 1, strokeDasharray: '6,4', opacity: 0.5,
+          }),
+          // Products
+          d.products.map((p, i) => {
+            const x = pad.left + (p.cost / maxCost) * (scatterW - pad.left - pad.right);
+            const y = pad.top + (1 - p.price / maxPrice) * (scatterH - pad.top - pad.bottom);
+            const r = Math.max(6, Math.min(20, Math.sqrt(p.volume) / 8));
+            const color = p.margin > 35 ? theme.success : p.margin > 25 ? theme.primary : theme.error;
+            return React.createElement('g', { key: i },
+              React.createElement('circle', { cx: x, cy: y, r, fill: color, opacity: 0.6, stroke: color, strokeWidth: 1.5 }),
+              React.createElement('text', { x: x, y: y - r - 4, textAnchor: 'middle', fontSize: 9, fill: theme.textSecondary, fontFamily: 'Inter, system-ui, sans-serif' },
+                p.id)
+            );
+          }),
+          // Axis labels
+          React.createElement('text', { x: scatterW / 2, y: scatterH - 6, textAnchor: 'middle', fontSize: 11, fill: theme.textMuted, fontFamily: 'Inter, system-ui, sans-serif' }, 'Unit Cost ($)'),
+          React.createElement('text', { x: 14, y: scatterH / 2, textAnchor: 'middle', fontSize: 11, fill: theme.textMuted, fontFamily: 'Inter, system-ui, sans-serif', transform: `rotate(-90, 14, ${scatterH / 2})` }, 'Price ($)')
+        )
+      ),
+
+      // Margin by product bar
+      React.createElement(Card, { style: { padding: 20 } },
+        React.createElement('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 4 } }, 'Margin by Product'),
+        React.createElement('div', { style: { fontSize: 12, color: theme.textMuted, marginBottom: 12 } }, 'Sorted by margin percentage'),
+        React.createElement(BarChart, {
+          data: [...d.products].sort((a, b) => b.margin - a.margin).map(p => ({
+            label: p.id, value: p.margin, displayValue: p.margin.toFixed(1) + '%',
+          })),
+          width: 560, height: 220,
+          colorFn: (d) => d.value > 35 ? theme.success : d.value > 25 ? theme.primary : theme.error,
+        })
+      )
+    ),
+
+    // Product table
+    React.createElement(Card, { style: { padding: 20 } },
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 } },
+        React.createElement('div', { style: { fontSize: 14, fontWeight: 600 } }, 'Product Master'),
+        React.createElement('div', { style: { display: 'flex', gap: 8 } },
+          React.createElement('button', {
+            style: { padding: '6px 14px', borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.bgCard, color: theme.textSecondary, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }
+          }, 'Export'),
+          React.createElement('button', {
+            style: { padding: '6px 14px', borderRadius: 6, border: 'none', background: theme.primary, color: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+          }, 'Add Product')
+        )
+      ),
+      React.createElement(DataTable, {
+        columns: [
+          { key: 'id', label: 'SKU', mono: true },
+          { key: 'name', label: 'Product Name' },
+          { key: 'family', label: 'Family' },
+          { key: 'margin', label: 'Margin', align: 'right', mono: true, render: (r) => React.createElement('span', { style: { color: r.margin < 25 ? theme.error : r.margin > 35 ? theme.success : theme.text, fontWeight: 600 } }, r.margin.toFixed(1) + '%') },
+          { key: 'cost', label: 'Unit Cost', align: 'right', mono: true, render: (r) => '$' + r.cost.toLocaleString() },
+          { key: 'price', label: 'Price', align: 'right', mono: true, render: (r) => '$' + r.price.toLocaleString() },
+          { key: 'volume', label: 'Volume', align: 'right', mono: true, render: (r) => r.volume.toLocaleString() },
+          { key: 'revenue', label: 'Revenue', align: 'right', mono: true, render: (r) => fmt.currency(r.price * r.volume) },
+          { key: 'trend', label: 'Trend', align: 'center', render: (r) => React.createElement(Badge, {
+            text: r.trend, color: r.trend === 'up' ? theme.success : r.trend === 'down' ? theme.error : theme.textMuted,
+            bg: r.trend === 'up' ? theme.successBg : r.trend === 'down' ? theme.errorBg : theme.bgAlt,
+          }) },
+        ],
+        rows: sorted,
+      })
+    )
+  );
+}
+
+Object.assign(window, { ProductsCosting });
+
+  </script>
+
+  <!-- Materials Page -->
+  <script>
+// Materials v2 with World Map + richer interactivity
+function MaterialsPageV2({ setPage, openChat }) {
+  const { theme } = useTheme();
+  const d = SAMPLE_DATA;
+  const [selectedMaterial, setSelectedMaterial] = React.useState(null);
+  const riskColors = { High: theme.error, Medium: theme.warning, Low: theme.success };
+
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1400 } },
+    // KPIs
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 } },
+      [
+        { label: 'Total Materials', value: d.materials.length, sub: 'Tracked commodities' },
+        { label: 'High Risk', value: d.materials.filter(m => m.risk === 'High').length, sub: 'Require immediate action', alert: true },
+        { label: 'Avg Cost Change', value: '+' + (d.materials.reduce((s, m) => s + m.change, 0) / d.materials.length).toFixed(1) + '%', sub: '6-month weighted average', alert: true },
+        { label: 'Material Spend', value: fmt.currency(d.materials.reduce((s, m) => s + m.spend, 0)), sub: '42% of total cost' },
+      ].map((kpi, i) => React.createElement(Card, { key: i, style: { padding: 16 } },
+        React.createElement('div', { style: { fontSize: 11, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 } }, kpi.label),
+        React.createElement('div', { style: { fontSize: 24, fontWeight: 700, fontFamily: 'ui-monospace, "Fira Code", monospace', color: kpi.alert ? theme.error : theme.text } }, kpi.value),
+        React.createElement('div', { style: { fontSize: 12, color: theme.textMuted, marginTop: 4 } }, kpi.sub)
+      ))
+    ),
+
+    // Supply Chain Map
+    React.createElement(Card, { style: { padding: 20 } },
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
+        React.createElement('div', null,
+          React.createElement('div', { style: { fontSize: 15, fontWeight: 600 } }, 'Global Supply Chain Map'),
+          React.createElement('div', { style: { fontSize: 12, color: theme.textMuted } }, 'Supplier locations · risk overlays · click to drill into supplier details'),
+        ),
+        React.createElement('button', {
+          onClick: () => openChat('Supply chain risk overview'),
+          style: { padding: '5px 10px', borderRadius: 6, border: `1px solid ${theme.primaryBorder}`, background: theme.primaryBg, color: theme.primary, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }
+        }, '✦ Ask AI')
+      ),
+      React.createElement(WorldMap, {
+        materials: d.materials, width: 880, height: 340,
+        onClickSupplier: (mat) => setSelectedMaterial(mat),
+      }),
+      // AI callout
+      React.createElement('div', { style: { marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' } },
+        React.createElement(AIInsightChip, { text: '3 high-risk suppliers concentrated in geopolitically sensitive regions', type: 'warning' }),
+        React.createElement(AIInsightChip, { text: 'Titanium supply chain most vulnerable — activate secondary sourcing', type: 'warning' }),
+      )
+    ),
+
+    // Material cards
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 } },
+      d.materials.map(mat => React.createElement(Card, {
+        key: mat.id, hoverable: true,
+        onClick: () => setSelectedMaterial(selectedMaterial?.id === mat.id ? null : mat),
+        style: { padding: 16, border: selectedMaterial?.id === mat.id ? `2px solid ${theme.primary}` : `1px solid ${theme.border}` },
+      },
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' } },
+          React.createElement('div', { style: { flex: 1 } },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+              React.createElement('span', { style: { fontSize: 14, fontWeight: 600 } }, mat.name),
+              React.createElement(Badge, { text: mat.risk, color: riskColors[mat.risk], bg: riskColors[mat.risk] + '18' }),
+            ),
+            React.createElement('div', { style: { fontSize: 12, color: theme.textMuted, marginTop: 2 } }, mat.supplier + ' · ' + mat.country),
+          ),
+          React.createElement('div', { style: { textAlign: 'right' } },
+            React.createElement('div', { style: { fontSize: 20, fontWeight: 700, fontFamily: 'ui-monospace, "Fira Code", monospace' } }, '$' + mat.cost.toFixed(2)),
+            React.createElement('div', { style: { fontSize: 11, color: theme.textMuted } }, mat.unit),
+          )
+        ),
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 } },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+            React.createElement(Sparkline, { data: mat.trend, width: 80, height: 24, color: riskColors[mat.risk] }),
+            React.createElement(TrendArrow, { value: mat.change, size: 12 }),
+          ),
+          React.createElement('span', { style: { fontSize: 12, fontFamily: 'ui-monospace, monospace', color: theme.textSecondary } }, 'Spend: ' + fmt.currency(mat.spend)),
+        ),
+        // AI suggestion for high-risk
+        mat.risk === 'High' && React.createElement('div', {
+          style: { marginTop: 8, padding: '6px 10px', borderRadius: 6, background: theme.primaryBg, border: `1px solid ${theme.primaryBorder}`, fontSize: 11, color: theme.primary, lineHeight: 1.5 }
+        }, '✦ AI: ', mat.id === 'M2' ? 'Lock forward contracts or qualify aluminum substitute' : mat.id === 'M5' ? 'Build 30-day safety stock; monitor capacity utilization' : 'Activate secondary supplier to reduce geopolitical exposure')
+      ))
+    ),
+
+    // Selected material detail
+    selectedMaterial && React.createElement(Card, { style: { padding: 20 } },
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 } },
+        React.createElement('div', null,
+          React.createElement('div', { style: { fontSize: 16, fontWeight: 700 } }, selectedMaterial.name),
+          React.createElement('div', { style: { fontSize: 13, color: theme.textMuted } }, selectedMaterial.supplier + ' · ' + selectedMaterial.country),
+        ),
+        React.createElement('div', { style: { display: 'flex', gap: 8 } },
+          React.createElement('button', {
+            onClick: () => openChat(selectedMaterial.name + ' analysis'),
+            style: { padding: '5px 10px', borderRadius: 6, border: `1px solid ${theme.primaryBorder}`, background: theme.primaryBg, color: theme.primary, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+          }, '✦ Ask AI'),
+          React.createElement('button', {
+            onClick: () => setSelectedMaterial(null),
+            style: { padding: 6, borderRadius: 6, border: 'none', background: theme.bgAlt, cursor: 'pointer', display: 'flex' },
+          }, React.createElement(Icon, { name: 'close', size: 16 })),
+        )
+      ),
+      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 } },
+        // Price trend
+        React.createElement('div', null,
+          React.createElement('div', { style: { fontSize: 13, fontWeight: 600, marginBottom: 8 } }, 'Price Trend (6M)'),
+          React.createElement(AreaChart, {
+            data: selectedMaterial.trend.map((v, i) => ({ value: v, month: ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'][i] })),
+            width: 280, height: 120, showLabels: true,
+            color: riskColors[selectedMaterial.risk],
+          }),
+          React.createElement('div', { style: { marginTop: 6 } },
+            React.createElement(AIInsightChip, { text: selectedMaterial.change > 10 ? 'Price acceleration — hedge recommended' : 'Price stable — monitor quarterly', type: selectedMaterial.change > 10 ? 'warning' : 'insight' })
+          )
+        ),
+        // Alternatives
+        React.createElement('div', null,
+          React.createElement('div', { style: { fontSize: 13, fontWeight: 600, marginBottom: 8 } }, 'Sourcing Alternatives'),
+          [
+            { name: selectedMaterial.supplier + ' (Current)', cost: selectedMaterial.cost, lead: '2 wk', quality: 'A', current: true },
+            { name: 'Alt Supplier 1', cost: +(selectedMaterial.cost * 1.03).toFixed(2), lead: '3 wk', quality: 'A-' },
+            { name: 'Alt Supplier 2', cost: +(selectedMaterial.cost * 0.95).toFixed(2), lead: '5 wk', quality: 'B+' },
+          ].map((alt, i) => React.createElement('div', {
+            key: i,
+            style: { padding: 8, borderRadius: 6, border: `1px solid ${theme.border}`, fontSize: 12, marginBottom: 6, background: alt.current ? theme.primaryBg : 'transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
+          },
+            React.createElement('div', null,
+              React.createElement('div', { style: { fontWeight: alt.current ? 600 : 400 } }, alt.name),
+              React.createElement('div', { style: { fontSize: 10, color: theme.textMuted } }, alt.lead + ' lead · Quality: ' + alt.quality),
+            ),
+            React.createElement('span', { style: { fontFamily: 'ui-monospace, monospace', fontWeight: 600 } }, '$' + alt.cost)
+          ))
+        ),
+        // Risk scores
+        React.createElement('div', null,
+          React.createElement('div', { style: { fontSize: 13, fontWeight: 600, marginBottom: 8 } }, 'Risk Assessment'),
+          [
+            { label: 'Supply Reliability', value: selectedMaterial.risk === 'High' ? 35 : selectedMaterial.risk === 'Medium' ? 60 : 85 },
+            { label: 'Price Stability', value: selectedMaterial.change > 12 ? 25 : selectedMaterial.change > 7 ? 55 : 80 },
+            { label: 'Quality Score', value: 88 },
+            { label: 'Geopolitical Risk', value: selectedMaterial.risk === 'High' ? 75 : selectedMaterial.risk === 'Medium' ? 40 : 15 },
+          ].map((r, i) => React.createElement('div', { key: i, style: { marginBottom: 8 } },
+            React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 11, color: theme.textSecondary, marginBottom: 3 } },
+              React.createElement('span', null, r.label),
+              React.createElement('span', { style: { fontWeight: 600, fontFamily: 'ui-monospace, monospace' } }, r.value + '/100'),
+            ),
+            React.createElement('div', { style: { height: 5, borderRadius: 3, background: theme.border } },
+              React.createElement('div', { style: { height: '100%', width: r.value + '%', borderRadius: 3, background: r.value > 70 ? theme.success : r.value > 40 ? theme.warning : theme.error, transition: 'width 0.3s' } })
+            )
+          ))
+        )
+      )
+    )
+  );
+}
+
+Object.assign(window, { MaterialsPageV2 });
+
+  </script>
+
+  <!-- Scenario Builder Page -->
+  <script>
+// Scenario Builder Page
+function ScenarioBuilder({ setPage }) {
+  const { theme } = useTheme();
+  const [step, setStep] = React.useState('select'); // select, configure, results
+  const [template, setTemplate] = React.useState(null);
+  const [params, setParams] = React.useState({ priceChange: 3, costReduction: 2, volumeShift: -1 });
+  const [running, setRunning] = React.useState(false);
+
+  const templates = [
+    { id: 'price', label: 'Price Increase', desc: 'Evaluate impact of pricing adjustments across product portfolio', icon: '↗', impact: '+1.2pp margin', effort: 'Medium' },
+    { id: 'cost', label: 'Cost Reduction', desc: 'Material substitution, supplier renegotiation, process optimization', icon: '↘', impact: '+0.8pp margin', effort: 'High' },
+    { id: 'mix', label: 'Product Mix Shift', desc: 'Shift volume toward higher-margin products and customer segments', icon: '⇄', impact: '+0.5pp margin', effort: 'Low' },
+    { id: 'plant', label: 'Production Rebalancing', desc: 'Redistribute production across plants for optimal margin', icon: '⊞', impact: '+0.9pp margin', effort: 'High' },
+  ];
+
+  const scenarioResults = {
+    baselineMargin: 29.1,
+    scenarioMargin: template === 'price' ? 30.8 : template === 'cost' ? 30.2 : template === 'mix' ? 29.8 : 30.3,
+    impactDollars: template === 'price' ? 35700000 : template === 'cost' ? 23100000 : template === 'mix' ? 14700000 : 25200000,
+    feasibility: template === 'price' ? 72 : template === 'cost' ? 58 : template === 'mix' ? 85 : 64,
+    timeline: template === 'mix' ? '2-4 weeks' : '4-8 weeks',
+    risks: template === 'price' ? 'Customer churn risk on price-sensitive segments' : template === 'cost' ? 'Quality risk with alternative suppliers' : 'Capacity constraints at high-margin plants',
+    plantImpact: SAMPLE_DATA.plants.map(p => ({
+      ...p,
+      newMargin: p.margin + (Math.random() * 3 - 0.5),
+    })),
+  };
+
+  const runScenario = () => {
+    setRunning(true);
+    setTimeout(() => { setRunning(false); setStep('results'); }, 1500);
+  };
+
+  // Template selection
+  if (step === 'select') {
+    return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1400 } },
+      React.createElement('div', null,
+        React.createElement('div', { style: { fontSize: 14, color: theme.textMuted, marginBottom: 8 } }, 'Choose a scenario template or build custom'),
+      ),
+      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 } },
+        templates.map(t => React.createElement(Card, {
+          key: t.id, hoverable: true,
+          onClick: () => { setTemplate(t.id); setStep('configure'); },
+          style: { padding: 20, cursor: 'pointer', border: `1px solid ${theme.border}` },
+        },
+          React.createElement('div', { style: { display: 'flex', gap: 14, alignItems: 'flex-start' } },
+            React.createElement('div', {
+              style: { width: 44, height: 44, borderRadius: 10, background: theme.primaryBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: theme.primary, flexShrink: 0 }
+            }, t.icon),
+            React.createElement('div', { style: { flex: 1 } },
+              React.createElement('div', { style: { fontSize: 15, fontWeight: 600, marginBottom: 4 } }, t.label),
+              React.createElement('div', { style: { fontSize: 12, color: theme.textSecondary, lineHeight: 1.5, marginBottom: 10 } }, t.desc),
+              React.createElement('div', { style: { display: 'flex', gap: 12 } },
+                React.createElement('span', { style: { fontSize: 12, color: theme.success, fontWeight: 600 } }, t.impact),
+                React.createElement('span', { style: { fontSize: 12, color: theme.textMuted } }, 'Effort: ' + t.effort),
+              )
+            )
+          )
+        ))
+      ),
+      // AI recommended scenarios
+      React.createElement(Card, { style: { padding: 20, border: `1px solid ${theme.primaryBorder}`, background: theme.primaryBg } },
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 } },
+          React.createElement('div', { style: { width: 24, height: 24, borderRadius: 6, background: `linear-gradient(135deg, ${theme.primary}, ${theme.primaryLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+            React.createElement(Icon, { name: 'ai', size: 14, color: '#fff' })),
+          React.createElement('span', { style: { fontSize: 13, fontWeight: 600, color: theme.primary } }, 'AI-Recommended Scenarios'),
+        ),
+        React.createElement('div', { style: { display: 'flex', gap: 12 } },
+          [
+            { title: 'Shift Valve V-50 to Portland', margin: '+1.2pp', roi: '340%', conf: 78 },
+            { title: 'Copper forward contracts (6M)', margin: '+0.6pp', roi: '210%', conf: 85 },
+            { title: '3% price increase on Pumps', margin: '+0.4pp', roi: '520%', conf: 65 },
+          ].map((rec, i) => React.createElement('div', {
+            key: i,
+            style: { flex: 1, padding: 12, borderRadius: 8, background: theme.bgCard, border: `1px solid ${theme.border}`, cursor: 'pointer' },
+            onClick: () => { setTemplate('cost'); setStep('configure'); },
+          },
+            React.createElement('div', { style: { fontSize: 13, fontWeight: 600, marginBottom: 6 } }, rec.title),
+            React.createElement('div', { style: { display: 'flex', gap: 10, fontSize: 12 } },
+              React.createElement('span', { style: { color: theme.success, fontWeight: 600 } }, rec.margin),
+              React.createElement('span', { style: { color: theme.textMuted } }, 'ROI ' + rec.roi),
+              React.createElement('span', { style: { color: theme.textMuted } }, rec.conf + '% conf.'),
+            )
+          ))
+        )
+      ),
+      // Saved scenarios
+      React.createElement(Card, { style: { padding: 20 } },
+        React.createElement('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 14 } }, 'Saved Scenarios'),
+        React.createElement(DataTable, {
+          columns: [
+            { key: 'name', label: 'Scenario' },
+            { key: 'type', label: 'Type' },
+            { key: 'impact', label: 'Impact', align: 'right', mono: true, render: (r) => React.createElement('span', { style: { color: theme.success, fontWeight: 600 } }, r.impact) },
+            { key: 'status', label: 'Status', render: (r) => React.createElement(Badge, { text: r.status, color: r.status === 'Active' ? theme.success : theme.textMuted, bg: r.status === 'Active' ? theme.successBg : theme.bgAlt }) },
+            { key: 'date', label: 'Created' },
+          ],
+          rows: [
+            { name: 'Q2 Price Adjustment', type: 'Price Increase', impact: '+$12.4M', status: 'Active', date: 'Apr 12, 2026' },
+            { name: 'Steel Supplier Switch', type: 'Cost Reduction', impact: '+$8.1M', status: 'Draft', date: 'Apr 8, 2026' },
+            { name: 'Houston → Portland Shift', type: 'Production Rebal.', impact: '+$4.8M', status: 'Draft', date: 'Apr 3, 2026' },
+          ],
+        })
+      )
+    );
+  }
+
+  // Configuration
+  if (step === 'configure') {
+    const templateInfo = templates.find(t => t.id === template) || templates[0];
+    return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1400 } },
+      React.createElement('button', {
+        onClick: () => setStep('select'),
+        style: { alignSelf: 'flex-start', padding: '6px 14px', borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.bgCard, color: theme.textSecondary, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }
+      }, '← Back to templates'),
+
+      React.createElement(Card, { style: { padding: 24 } },
+        React.createElement('div', { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, templateInfo.label + ' Scenario'),
+        React.createElement('div', { style: { fontSize: 13, color: theme.textMuted, marginBottom: 24 } }, templateInfo.desc),
+
+        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24 } },
+          [
+            { key: 'priceChange', label: 'Price Adjustment (%)', min: -5, max: 15, step: 0.5 },
+            { key: 'costReduction', label: 'Cost Reduction Target (%)', min: 0, max: 10, step: 0.5 },
+            { key: 'volumeShift', label: 'Volume Impact (%)', min: -10, max: 10, step: 0.5 },
+          ].map(s => React.createElement('div', { key: s.key },
+            React.createElement('label', { style: { fontSize: 12, fontWeight: 600, color: theme.textSecondary, display: 'block', marginBottom: 8 } }, s.label),
+            React.createElement('input', {
+              type: 'range', min: s.min, max: s.max, step: s.step, value: params[s.key],
+              onChange: (e) => setParams(p => ({ ...p, [s.key]: +e.target.value })),
+              style: { width: '100%', accentColor: theme.primary },
+            }),
+            React.createElement('div', { style: { fontSize: 20, fontWeight: 700, fontFamily: 'ui-monospace, "Fira Code", monospace', color: theme.primary, marginTop: 4 } },
+              (params[s.key] > 0 ? '+' : '') + params[s.key] + '%')
+          ))
+        ),
+
+        React.createElement('div', { style: { display: 'flex', gap: 12, marginTop: 24 } },
+          React.createElement('button', {
+            onClick: runScenario,
+            disabled: running,
+            style: {
+              padding: '10px 24px', borderRadius: 8, border: 'none',
+              background: running ? theme.textMuted : `linear-gradient(135deg, ${theme.primary}, ${theme.primaryLight})`,
+              color: '#fff', fontSize: 14, fontWeight: 600, cursor: running ? 'default' : 'pointer', fontFamily: 'inherit',
+            }
+          }, running ? 'Running simulation...' : 'Run Simulation'),
+          React.createElement('button', {
+            style: { padding: '10px 24px', borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bgCard, color: theme.textSecondary, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }
+          }, 'Save as Draft'),
+        )
+      )
+    );
+  }
+
+  // Results
+  const r = scenarioResults;
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1400 } },
+    React.createElement('button', {
+      onClick: () => setStep('configure'),
+      style: { alignSelf: 'flex-start', padding: '6px 14px', borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.bgCard, color: theme.textSecondary, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }
+    }, '← Adjust parameters'),
+
+    // Results KPIs
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 } },
+      [
+        { label: 'Baseline Margin', value: r.baselineMargin.toFixed(1) + '%', color: theme.textMuted },
+        { label: 'Scenario Margin', value: r.scenarioMargin.toFixed(1) + '%', color: theme.success },
+        { label: 'Incremental Impact', value: fmt.currency(r.impactDollars), color: theme.success },
+        { label: 'Feasibility Score', value: r.feasibility + '/100', color: r.feasibility > 70 ? theme.success : theme.warning },
+      ].map((kpi, i) => React.createElement(Card, { key: i, style: { padding: 16 } },
+        React.createElement('div', { style: { fontSize: 11, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 } }, kpi.label),
+        React.createElement('div', { style: { fontSize: 24, fontWeight: 700, fontFamily: 'ui-monospace, "Fira Code", monospace', color: kpi.color } }, kpi.value),
+      ))
+    ),
+
+    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 } },
+      // Comparison chart
+      React.createElement(Card, { style: { padding: 20 } },
+        React.createElement('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 16 } }, 'Baseline vs. Scenario by Plant'),
+        React.createElement(BarChart, {
+          data: r.plantImpact.map(p => ({ label: p.name.split(',')[0], value: p.newMargin, displayValue: p.newMargin.toFixed(1) + '%' })),
+          width: 550, height: 200,
+          colorFn: () => theme.primary,
+        })
+      ),
+
+      // Risk & timeline
+      React.createElement(Card, { style: { padding: 20 } },
+        React.createElement('div', { style: { fontSize: 14, fontWeight: 600, marginBottom: 16 } }, 'Implementation Details'),
+        React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+          React.createElement('div', null,
+            React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: theme.textSecondary, marginBottom: 4 } }, 'Timeline'),
+            React.createElement('div', { style: { fontSize: 16, fontWeight: 600 } }, r.timeline),
+          ),
+          React.createElement('div', null,
+            React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: theme.textSecondary, marginBottom: 4 } }, 'Key Risks'),
+            React.createElement('div', { style: { fontSize: 13, color: theme.textSecondary, lineHeight: 1.5, padding: 10, background: theme.warningBg, borderRadius: 6, border: `1px solid ${theme.warning}30` } }, r.risks),
+          ),
+          React.createElement('div', null,
+            React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: theme.textSecondary, marginBottom: 4 } }, 'Feasibility'),
+            React.createElement('div', { style: { height: 8, borderRadius: 4, background: theme.border, marginTop: 4 } },
+              React.createElement('div', { style: { height: '100%', width: r.feasibility + '%', borderRadius: 4, background: r.feasibility > 70 ? theme.success : theme.warning } })
+            ),
+          ),
+          React.createElement('div', { style: { display: 'flex', gap: 12, marginTop: 8 } },
+            React.createElement('button', {
+              style: { flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: theme.primary, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
+            }, 'Approve & Track'),
+            React.createElement('button', {
+              style: { flex: 1, padding: '10px', borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bgCard, color: theme.textSecondary, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }
+            }, 'Export Report'),
+          )
+        )
+      )
+    )
+  );
+}
+
+Object.assign(window, { ScenarioBuilder });
+
+  </script>
+
+  <!-- Main Application -->
+  <script>
+
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "chartStyle": "gradient",
+      "aiPanelStyle": "inline",
+      "accentHue": 270,
+      "cardRadius": 10,
+      "density": "balanced"
+    }/*EDITMODE-END*/;
+
+    function TweaksPanel({ tweaks, setTweaks, visible }) {
+      const { theme } = useTheme();
+      if (!visible) return null;
+      return React.createElement('div', {
+        style: {
+          position: 'fixed', bottom: 16, right: 16, width: 280, zIndex: 1000,
+          background: theme.bgCard, borderRadius: 12, border: `1px solid ${theme.border}`,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.15)', overflow: 'hidden', animation: 'fadeIn 0.2s ease-out',
+        }
+      },
+        React.createElement('div', {
+          style: { padding: '12px 16px', borderBottom: `1px solid ${theme.border}`, fontSize: 13, fontWeight: 700, color: theme.primary, display: 'flex', alignItems: 'center', gap: 6 }
+        }, React.createElement(Icon, { name: 'settings', size: 14, color: theme.primary }), 'Tweaks'),
+        React.createElement('div', { style: { padding: 16, display: 'flex', flexDirection: 'column', gap: 14 } },
+          React.createElement('div', null,
+            React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: theme.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 } }, 'Chart Style'),
+            React.createElement('div', { style: { display: 'flex', gap: 4 } },
+              ['gradient', 'solid', 'outline'].map(s => React.createElement('button', {
+                key: s, onClick: () => { const n = { ...tweaks, chartStyle: s }; setTweaks(n); window.parent.postMessage({ type: '__edit_mode_set_keys', edits: n }, '*'); },
+                style: { flex: 1, padding: '6px', borderRadius: 6, border: `1px solid ${tweaks.chartStyle === s ? theme.primary : theme.border}`, background: tweaks.chartStyle === s ? theme.primaryBg : 'transparent', color: tweaks.chartStyle === s ? theme.primary : theme.textMuted, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+              }, s))
+            )
+          ),
+          React.createElement('div', null,
+            React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: theme.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 } }, 'Density'),
+            React.createElement('div', { style: { display: 'flex', gap: 4 } },
+              ['compact', 'balanced', 'spacious'].map(s => React.createElement('button', {
+                key: s, onClick: () => { const n = { ...tweaks, density: s }; setTweaks(n); window.parent.postMessage({ type: '__edit_mode_set_keys', edits: n }, '*'); },
+                style: { flex: 1, padding: '6px', borderRadius: 6, border: `1px solid ${tweaks.density === s ? theme.primary : theme.border}`, background: tweaks.density === s ? theme.primaryBg : 'transparent', color: tweaks.density === s ? theme.primary : theme.textMuted, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+              }, s))
+            )
+          ),
+        )
+      );
+    }
+
+    // Layout v2 with AI chat integration
+    function LayoutV2({ children, currentPage, setPage, openChat }) {
+      const { theme, isDark, toggleTheme } = useTheme();
+      const [sidebarOpen, setSidebarOpen] = React.useState(true);
+
+      const navItems = [
+        { id: 'control-tower', label: 'Control Tower', icon: 'dashboard' },
+        { id: 'plants', label: 'Plant Drill-Down', icon: 'plant' },
+        { id: 'margin-categories', label: 'Margin Categories', icon: 'chart' },
+        { id: 'products', label: 'Products & Costing', icon: 'product' },
+        { id: 'materials', label: 'Materials', icon: 'material' },
+        { id: 'scenarios', label: 'Scenario Builder', icon: 'scenario' },
+        { id: 'alerts', label: 'Alerts & Monitoring', icon: 'alert' },
+        { id: 'issues', label: 'Issue Tracker', icon: 'playbook' },
+      ];
+
+      const sidebarW = sidebarOpen ? 220 : 60;
+
+      return React.createElement('div', {
+        style: { display: 'flex', height: '100vh', width: '100vw', background: theme.bg, color: theme.text, fontFamily: 'Inter, system-ui, sans-serif', overflow: 'hidden' }
+      },
+        // Sidebar
+        React.createElement('nav', {
+          style: { width: sidebarW, minWidth: sidebarW, height: '100vh', background: theme.bgSidebar, borderRight: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', transition: 'width 0.25s ease, min-width 0.25s ease', overflow: 'hidden', zIndex: 10 }
+        },
+          React.createElement('div', {
+            style: { padding: sidebarOpen ? '16px 16px 12px' : '16px 0 12px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: sidebarOpen ? 'flex-start' : 'center', minHeight: 56 }
+          },
+            React.createElement('div', {
+              style: { width: 30, height: 30, borderRadius: 8, background: `linear-gradient(135deg, ${theme.primary}, ${theme.primaryLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }
+            }, React.createElement('span', { style: { color: '#fff', fontWeight: 700, fontSize: 12 } }, 'MO')),
+            sidebarOpen && React.createElement('div', null,
+              React.createElement('div', { style: { fontWeight: 700, fontSize: 13, color: theme.text, lineHeight: 1.2 } }, 'Margin Optimizer'),
+              React.createElement('div', { style: { fontSize: 9, color: theme.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' } }, 'AI Control Tower'))
+          ),
+          React.createElement('div', { style: { flex: 1, padding: '4px 8px', display: 'flex', flexDirection: 'column', gap: 1 } },
+            navItems.map(item => {
+              const active = currentPage === item.id;
+              const alertCount = item.id === 'alerts' ? SAMPLE_DATA.kpis.criticalAlerts : item.id === 'issues' ? SAMPLE_DATA.issues.filter(i => i.status !== 'solved').length : 0;
+              return React.createElement('button', {
+                key: item.id,
+                onClick: () => { setPage(item.id); localStorage.setItem('mo-page', item.id); },
+                style: {
+                  display: 'flex', alignItems: 'center', gap: 10, padding: sidebarOpen ? '8px 12px' : '8px 0',
+                  justifyContent: sidebarOpen ? 'flex-start' : 'center',
+                  borderRadius: 6, border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left',
+                  background: active ? theme.primaryBg : 'transparent',
+                  color: active ? theme.primary : theme.textSecondary,
+                  fontWeight: active ? 600 : 400, fontSize: 12, fontFamily: 'inherit', transition: 'all 0.15s',
+                },
+                onMouseEnter: (e) => { if (!active) e.currentTarget.style.background = theme.primaryBg; },
+                onMouseLeave: (e) => { if (!active) e.currentTarget.style.background = 'transparent'; },
+              },
+                React.createElement(Icon, { name: item.icon, size: 16, color: active ? theme.primary : theme.textMuted }),
+                sidebarOpen && React.createElement('span', { style: { flex: 1 } }, item.label),
+                sidebarOpen && alertCount > 0 && React.createElement('span', { style: { fontSize: 10, background: theme.error, color: '#fff', padding: '1px 5px', borderRadius: 8, fontWeight: 600 } }, alertCount)
+              );
+            }),
+            // AI chat button in sidebar
+            React.createElement('div', { style: { marginTop: 8, padding: '0' } },
+              React.createElement('button', {
+                onClick: () => openChat(),
+                style: {
+                  display: 'flex', alignItems: 'center', gap: 10, padding: sidebarOpen ? '8px 12px' : '8px 0',
+                  justifyContent: sidebarOpen ? 'flex-start' : 'center',
+                  borderRadius: 6, border: `1px solid ${theme.primaryBorder}`, cursor: 'pointer', width: '100%',
+                  background: theme.primaryBg, color: theme.primary, fontSize: 12, fontFamily: 'inherit', fontWeight: 600,
+                }
+              },
+                React.createElement(Icon, { name: 'ai', size: 16, color: theme.primary }),
+                sidebarOpen && 'AI Assistant'
+              )
+            )
+          ),
+          React.createElement('div', { style: { padding: 8, borderTop: `1px solid ${theme.border}` } },
+            React.createElement('button', {
+              onClick: () => setSidebarOpen(o => !o),
+              style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '6px', width: '100%', borderRadius: 6, border: 'none', background: 'transparent', color: theme.textMuted, cursor: 'pointer', fontSize: 11, fontFamily: 'inherit' }
+            }, React.createElement('span', { style: { transform: sidebarOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' } }, '→'), sidebarOpen && 'Collapse')
+          )
+        ),
+        // Main
+        React.createElement('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+          // Header
+          React.createElement('header', {
+            style: { height: 50, minHeight: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', borderBottom: `1px solid ${theme.border}`, background: theme.bgCard }
+          },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+              React.createElement('h1', { style: { fontSize: 15, fontWeight: 700, margin: 0 } }, navItems.find(n => n.id === currentPage)?.label || 'Control Tower'),
+              React.createElement('span', { style: { fontSize: 11, color: theme.textMuted, background: theme.bgAlt, padding: '2px 8px', borderRadius: 6 } }, SAMPLE_DATA.company),
+            ),
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+              React.createElement('button', { onClick: toggleTheme, style: { padding: '5px 10px', borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.bgAlt, cursor: 'pointer', color: theme.textSecondary, display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontFamily: 'inherit' } },
+                React.createElement(Icon, { name: isDark ? 'sun' : 'moon', size: 13 }), isDark ? 'Light' : 'Dark'),
+              React.createElement('button', {
+                onClick: () => setPage('alerts'),
+                style: { padding: 6, borderRadius: 6, border: 'none', background: 'transparent', cursor: 'pointer', color: theme.textMuted, display: 'flex', position: 'relative' }
+              },
+                React.createElement(Icon, { name: 'alert', size: 16 }),
+                React.createElement('span', { style: { position: 'absolute', top: 0, right: 0, width: 14, height: 14, borderRadius: '50%', background: theme.error, color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' } }, SAMPLE_DATA.kpis.criticalAlerts)
+              ),
+              React.createElement('div', { style: { width: 28, height: 28, borderRadius: '50%', background: `linear-gradient(135deg, ${theme.primary}, ${theme.primaryLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700 } }, 'JK')
+            )
+          ),
+          React.createElement('main', { style: { flex: 1, overflow: 'auto', padding: 20, background: theme.bg } }, children)
+        )
+      );
+    }
+
+    function App() {
+      const [page, setPage] = React.useState(() => localStorage.getItem('mo-page') || 'control-tower');
+      const [tweaks, setTweaks] = React.useState(TWEAK_DEFAULTS);
+      const [tweaksVisible, setTweaksVisible] = React.useState(false);
+      const [chatOpen, setChatOpen] = React.useState(false);
+      const [chatContext, setChatContext] = React.useState(null);
+      const [drillContext, setDrillContext] = React.useState(null);
+
+      const openChat = (ctx) => { setChatContext(ctx || null); setChatOpen(true); };
+
+      React.useEffect(() => {
+        const handler = (e) => {
+          if (e.data?.type === '__activate_edit_mode') setTweaksVisible(true);
+          if (e.data?.type === '__deactivate_edit_mode') setTweaksVisible(false);
+        };
+        window.addEventListener('message', handler);
+        window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+        return () => window.removeEventListener('message', handler);
+      }, []);
+
+      const pages = {
+        'control-tower': React.createElement(ControlTowerV2, { setPage, openChat, setDrillContext }),
+        'plants': React.createElement(PlantDrilldownV2, { setPage, openChat }),
+        'margin-categories': React.createElement(MarginCategories, { setPage }),
+        'products': React.createElement(ProductsCosting, { setPage }),
+        'materials': React.createElement(MaterialsPageV2, { setPage, openChat }),
+        'scenarios': React.createElement(ScenarioBuilder, { setPage }),
+        'alerts': React.createElement(AlertsPageV2, { setPage, openChat }),
+        'issues': React.createElement(IssueTracker, { setPage, setDrillContext }),
+      };
+
+      return React.createElement(ThemeProvider, null,
+        React.createElement(LayoutV2, { currentPage: page, setPage, openChat },
+          pages[page] || pages['control-tower']
+        ),
+        React.createElement(ThemeProvider, null,
+          React.createElement(React.Fragment, null,
+            React.createElement(TweaksPanel, { tweaks, setTweaks, visible: tweaksVisible }),
+            React.createElement(AIChatPanel, { visible: chatOpen, onClose: () => setChatOpen(false), context: chatContext }),
+          )
+        )
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+  
+  </script>
+
+</body>
+</html>
